@@ -1,0 +1,5 @@
+== Cross-cutting Concepts
+
+// Concerns that span building blocks and would otherwise be
+// re-explained in several places: domain model, persistence,
+// security, error handling, and similar.

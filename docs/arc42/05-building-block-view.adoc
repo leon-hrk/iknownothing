@@ -1,0 +1,8 @@
+== Building Block View
+
+// Static decomposition, refined level by level. Only go one level
+// deeper where the detail actually carries information.
+
+=== Whitebox: Overall System
+
+=== Level 2

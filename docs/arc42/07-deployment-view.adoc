@@ -1,0 +1,4 @@
+== Deployment View
+
+// Infrastructure the system runs on and how building blocks map
+// onto it. Includes the self-hosting setup users are expected to run.

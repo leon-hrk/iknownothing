@@ -1,0 +1,20 @@
+== Architecture Decisions
+
+// The one place in the repo where rationale is documented (see
+// CLAUDE.md). Only decisions with lasting structural impact belong
+// here - everything else lives in its commit message.
+//
+// Newest first. One entry per decision, using this shape:
+//
+// === 1. <Decision, as a statement>
+//
+// Status:: proposed | accepted | superseded by <n>
+//
+// Context::
+// What forced a choice.
+//
+// Decision::
+// What we do.
+//
+// Consequences::
+// What this costs us and what it rules out.

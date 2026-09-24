@@ -1,0 +1,4 @@
+== Runtime View
+
+// How the building blocks interact in the scenarios that matter -
+// typically the ones that are hard to infer from the static view.

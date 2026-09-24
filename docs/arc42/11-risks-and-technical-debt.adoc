@@ -1,0 +1,6 @@
+== Risks and Technical Debt
+
+// Known risks and accumulated debt, ordered by priority, each with
+// what would mitigate it. Unresolved product questions stay in
+// VISION.md - this chapter is for problems we already carry, not
+// decisions we have not made yet.

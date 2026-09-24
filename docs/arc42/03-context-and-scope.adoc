@@ -1,0 +1,9 @@
+== Context and Scope
+
+// The system boundary: which communication partners exist, and what
+// crosses the boundary. Business context first, technical context
+// only where the protocol or channel matters.
+
+=== Business Context
+
+=== Technical Context

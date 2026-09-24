@@ -1,0 +1,5 @@
+== Architecture Constraints
+
+// Everything the architecture is not free to choose: technical,
+// organisational, and conventions. A constraint is a fact, not a
+// decision - decisions belong in chapter 9.
