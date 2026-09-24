@@ -1,0 +1,5 @@
+== Solution Strategy
+
+// The handful of fundamental decisions that shape everything else:
+// technology choices, top-level decomposition, how the quality goals
+// are achieved. A short summary - the detail belongs in chapters 5-9.

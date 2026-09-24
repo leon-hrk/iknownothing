@@ -1,0 +1,11 @@
+== Introduction and Goals
+
+// What the system does, the top quality goals that drive the
+// architecture, and who cares about it. Product intent itself lives
+// in VISION.md - reference it rather than restating it.
+
+=== Requirements Overview
+
+=== Quality Goals
+
+=== Stakeholders

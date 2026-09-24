@@ -1,0 +1,28 @@
+# User data - course materials, derived artifacts, everything
+# namespaced per user. Never committed.
+/data/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# arc42 rendered output and diagram cache
+docs/arc42/build/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Language- and framework-specific entries are added once the stack
+# is chosen (see VISION.md, Open Questions).
+
+# Claude Code local settings
+.claude/settings.local.json
+.claude/*.tmp.*
