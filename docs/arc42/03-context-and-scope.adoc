@@ -31,8 +31,8 @@ include::diagrams/business-context.puml[]
 | A running instance
 
 | Anthropic API
-| Topics with example problems and lecture excerpts transcribed from
-  the PDFs, generated artifacts, tutor replies and grading
+| Topics with their source pages, tutor replies and grading, updated
+  progress
 | PDF documents, topics, artifacts, and prompts -
   authenticated with the instance's API key
 |===

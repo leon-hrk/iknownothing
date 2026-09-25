@@ -10,19 +10,19 @@
 |===
 | Risk | Impact | Mitigation
 
-| Topics depend on the order of the chunks
-| Every exam and exercise pass sees only its chunk and the topics
-  so far. A topic first seen in a later chunk can end up split from,
-  or duplicated with, an existing one.
-| Every pass gets all current topics and may change them. A final
-  pass over the topics alone that merges duplicates removes the risk.
+| Course size bounded by one request
+| Topic extraction sends all material in one request, limited to 600
+  pages and 32 MB. A larger course fails ingestion.
+| Past exams and exercises of one course usually stay far below the
+  limits. Uploading the PDFs through the Files API, or splitting
+  extraction into several requests, removes the risk.
 
 | Missing lecture content
-| Open points are written from exams and exercises alone. Lecture
-  content no open point asks for is missing for the tutor, which then
-  teaches in its own words and notation.
-| `topic.md` lists the open points the lecture does not answer, and
-  the tutor marks what it explains on them.
+| The lecture is not ingested (<<adr-no-lecture>>). The tutor teaches
+  definitions, formulas, and notation in its own words, which can
+  differ from the lecture's.
+| The tutor marks what it explains in its own words. Lecture material
+  through retrieval (chapter 1, out of scope) removes the risk.
 
 | Misclassified gradability tier
 | Tiers are assigned by the model without review. A Tier C task
@@ -34,7 +34,7 @@
 | Topics are built without review. A missing, split, or misnamed
   topic propagates into progress, and fixing it means re-ingesting
   the course. Material no topic takes up is visible nowhere.
-| `notes.md` feeds the exam passes. Topic review (chapter 1, out of
+| `notes.md` feeds topic extraction. Topic review (chapter 1, out of
   scope) removes the risk.
 
 | Shared rate limit and budget

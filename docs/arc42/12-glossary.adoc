@@ -35,14 +35,9 @@
   read-only for the student.
 
 | Document type
-| Lecture material (slides or script), exercise sheet, or past exam.
-  Chosen on upload,
+| Exercise sheet or past exam. Chosen on upload,
   stored as the subdirectory of `sources/`, and the basis of source
   priority.
-
-| Excerpt
-| A passage of the lecture material transcribed during a lecture
-  pass, with its file and pages, answering an open point.
 
 | Finalization
 | Updating a topic's `progress.md` from a topic-level chat. Happens
@@ -59,8 +54,8 @@
   `notes.md`.
 
 | Ingestion
-| The pipeline that turns a course's PDFs into topics, topic
-  directories, and the topic list, in passes.
+| The pipeline that turns a course's PDFs into topics with their
+  sources, topic directories, and the topic list.
 
 | Living artifact
 | A file derived from the student rather than from the material:
@@ -72,20 +67,9 @@
   the AI must respect. Required, uploaded when the course is created,
   and read-only afterwards.
 
-| Open point
-| Something the tutor needs to teach a topic that the exams and
-  exercises do not contain: a definition, formula, derivation, or
-  notation. Written by exam and exercise passes, answered by lecture
-  passes; unanswered ones stay in `topic.md`.
-
 | Operator
 | The person who runs an instance, provides its Anthropic API key,
   and manages its accounts.
-
-| Pass
-| One ingestion request over a chunk of the material - exam,
-  exercise, or lecture - together with the current topics or their
-  open points. Returns changes, which Ingestion applies.
 
 | Progress
 | `topics/<topic>/progress.md`: the student's mastery of one topic,
@@ -105,9 +89,8 @@
 
 | Source priority
 | The ranking of document types. For what a topic is: past exams >
-  exercises; the lecture creates no topics. For solution style and
-  notation: lecture > exercise solutions > past exam solutions > exam
-  question.
+  exercises. For solution style and notation: exercise solutions >
+  past exam solutions > exam question.
 
 | Student
 | The user of the tutor. Owns courses.
@@ -121,18 +104,25 @@
   priority.
 
 | Topic artifact
-| `topics/<topic>/topic.md`: description, exam relevance, task types,
-  example problems with their tier, difficulty, and working time,
-  solution approaches, lecture excerpts, out-of-reach task types, and
-  open points.
+| `topics/<topic>/topic.md`: description, exam relevance, priority,
+  and the topic's sources, with the Tier C tasks named as out of
+  reach.
 
 | Topic directory
 | `topics/<topic>/`: the topic artifact and its progress.
 
 | Topic list
-| `topics.json`: the topics in priority order, each with its priority
-  and topic directory. Orders the topic tree and gives the course-level
-  chat the priorities.
+| `topics.json`: the topics in priority order, each with its priority,
+  topic directory, and sources. Orders the topic tree, gives the
+  course-level chat the priorities, and a topic-level chat its source
+  pages.
+
+| Topic source
+| One task of a topic in the exams or exercises: its label, its
+  gradability tier, and its page ranges, each in one file - the task,
+  the figures and tables it refers to, and an exercise's solution.
+  The *source pages* of a topic are loaded into its topic-level
+  chat.
 
 | Topic-level chat
 | A session scoped to one topic, for tutoring and quizzing.

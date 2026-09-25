@@ -12,5 +12,5 @@ student --> system : course material,\nnotes, chat
 system --> student : tutoring, grading,\nMarkdown files
 operator --> system : deployment, configuration,\nAPI key, accounts
 system --> ai : documents, prompts\n(instance API key)
-ai --> system : topics, excerpts,\nreplies
+ai --> system : topics,\nreplies
 @enduml

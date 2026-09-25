@@ -23,7 +23,6 @@ to that user, and nothing inside it is read on behalf of another user.
 ....
 data/<user>/<course>/
 ├── sources/
-│   ├── lectures/           lecture slides or script
 │   ├── exercises/          exercise sheets and solutions
 │   └── exams/              past exams and solution proposals
 │       └── <file>.pdf      uploaded original
@@ -31,8 +30,7 @@ data/<user>/<course>/
 ├── cheatsheet.md           living artifact
 ├── topics.json             topic list
 ├── ingestion/              intermediate pipeline results
-│   ├── passes/<n>.json     topics after each exam and exercise pass
-│   └── lecture/<n>.json    excerpts of each lecture pass
+│   └── topics.json         topics as extracted
 └── topics/<topic>/
     ├── topic.md            topic artifact
     └── progress.md         living artifact
@@ -74,25 +72,33 @@ course:
   current file, never the whole file.
 * An open cheatsheet view reloads when the tutor changes it.
 
-=== Ingestion Passes
+=== Topic Extraction
 
 During ingestion the topics are data, not Markdown. Ingestion renders
-`topic.md` from them once all passes are done.
+`topic.md` from them.
 
-* A topic has a slug, a name, a priority, and one text field per
-  part of its artifact (chapter 1). The slug is its directory name.
-* A pass receives the current topics and returns changes: new
-  topics, and for existing ones the new content of the fields it
-  changes. Fields it does not name stay as they are.
-* Ingestion checks the changes - known or new, valid, unique slugs
-  and known field names - and repeats the request with the errors on
-  a violation.
-* A chunk holds whole files in file name order up to a page budget;
-  a file over the budget is split by pages. An exam and its solutions
-  in a separate file thus usually share a chunk.
-* A lecture pass returns excerpts per open point, with file and page
-  range. Ingestion adds them to the topic; an open point with an
-  excerpt counts as answered.
+* One request carries all exam and exercise PDFs as whole documents,
+  and `notes.md`. The files are ordered by unit: the files of one
+  exam or one exercise sheet carry the same number in their names
+  (`uebung01.pdf`, `loesung01.pdf`) and stand next to each other. The
+  limits of one request - 600 pages and 32 MB - bound the size of a
+  course (chapter 11).
+* The reply holds the course language and the topics. A topic has a
+  slug, a name, a priority, a description, and its sources. The slug
+  is its directory name.
+* The priority counts exams, not points: `high` if every or nearly
+  every past exam asks for the topic, `medium` if some do, `low` if
+  none does. `notes.md` can raise it. Without past exams, the
+  exercises take their place.
+* A source is one task: its label (`Aufgabe 3c-e`), its gradability
+  tier, and its page ranges, each in one file. The page ranges cover
+  the task, the figures and tables it refers to, and, for an
+  exercise, its solution in the solution file.
+* Ingestion checks the reply - valid, unique slugs, known files, and
+  pages within each file - and repeats the request with the errors
+  on a violation.
+* For a topic-level chat, the Course Store cuts the source pages of
+  the topic out of the PDFs, one document per file, each page once.
 
 === Security
 
@@ -140,14 +146,16 @@ Every request type runs on one of two model tiers (see
 |===
 | Request type | Tier
 
-| Lecture pass | small
 | Finalization | small
-| Exam pass | large
-| Exercise pass | large
+| Topic extraction | large
 | Chat, including grading | large
 |===
 
-Chat requests put the context of the chat first and mark it for
+Topic extraction asks for its reply in a JSON schema. A request the
+model declines is rerun server-side on a fallback model.
+
+Chat requests put the context of the chat first - for a topic-level
+chat, its source pages before everything else - and mark it for
 prompt caching, since every message sends it again.
 
 The AI Client logs model and token usage of every request with user,
@@ -159,8 +167,8 @@ tutoring is read from this log.
 Backend and worker are asynchronous throughout. Every call to the
 Anthropic API and every other wait on I/O is non-blocking, so one
 backend process holds many streaming chats at once, and one worker
-process runs several jobs and the parallel requests within them.
-Blocking work, such as splitting a PDF into page chunks, runs off the
+process runs several jobs at once.
+Blocking work, such as cutting pages out of a PDF, runs off the
 event loop.
 
 === Chat Tools
