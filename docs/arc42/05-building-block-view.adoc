@@ -5,4 +5,95 @@
 
 === Whitebox: Overall System
 
-=== Level 2
+[plantuml, target=building-blocks-level1, format=svg]
+....
+include::diagrams/building-blocks-level1.puml[]
+....
+
+[cols="1,3", options="header"]
+|===
+| Building block | Responsibility
+
+| Frontend
+| React single-page application in the browser: course tree, chat,
+  Markdown viewer. Talks to the backend over the HTTP API
+  only.
+
+| Backend
+| FastAPI application serving the HTTP API. Handles requests, streams
+  chat replies as Server-Sent Events, and enqueues background jobs.
+
+| Worker
+| Executes background jobs: ingestion and session finalization.
+  Built from the same code and image as the
+  backend (see <<adr-postgres-job-queue>>).
+
+| PostgreSQL
+| Users, course metadata, and the job queue.
+
+| Filesystem
+| Course content under `data/<user>/`, laid out as described in
+  <<_persistence,Persistence>>.
+|===
+
+The frontend is not decomposed further.
+
+=== Level 2: Backend and Worker
+
+Backend and worker share one set of modules; which process a module
+runs in depends on whether the work is a request or a job.
+
+[plantuml, target=building-blocks-level2, format=svg]
+....
+include::diagrams/building-blocks-level2.puml[]
+....
+
+[cols="1,3,2", options="header"]
+|===
+| Module | Responsibility | Owns
+
+| Accounts
+| Login and sessions, and the account commands the operator runs
+  from the command line (chapter 8).
+| Users and password hashes in PostgreSQL
+
+| Courses
+| Creating a course, uploading PDFs by document type and `notes.md`, and
+  reading course files through the Course Store. Starts ingestion on
+  the student's request and holds the course status: ingesting with
+  the current step, failed with the reason, or ready.
+| Course metadata in PostgreSQL
+
+| Course Store
+| The only access path to `data/<user>/<course>/`. Knows the storage
+  layout, resolves every path within the requesting user's directory,
+  and accepts no student writes after ingestion has started.
+| The filesystem
+
+| Ingestion
+| The ingestion pipeline: exam, exercise, and lecture passes, topic
+  files, and topic list. Runs as a job in the worker; each step writes its
+  result through the Course Store before the next one starts and
+  reports itself to Courses (see <<runtime-ingestion>>).
+| -
+
+| Tutor
+| Course-level and topic-level chats: assembles each chat's context
+  from the Course Store, streams replies as Server-Sent Events,
+  executes the chat tools, and finalizes
+  topic-level chats by updating their `progress.md`.
+| -
+
+| AI Client
+| The only caller of the Anthropic API. Loads prompts, sends each
+  request with the instance's API key on the model of its tier
+  (chapter 8), records its token usage, and streams responses back.
+| Prompts
+|===
+
+==== Prompts
+
+Every prompt is a Markdown file in the backend source tree, one per
+task (exam pass, exercise pass, lecture pass, tutoring, finalization,
+...). The AI Client loads them by name; other modules never build
+prompt text inline.

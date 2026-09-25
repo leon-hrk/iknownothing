@@ -22,17 +22,23 @@ template, written in AsciiDoc. `arc42.adoc` is the document;
 ## Building
 
 The rendered document is optional - the chapter files are readable as
-plain text. Only set this up if you want the built output or need
+plain text. Only build it if you want the rendered output or need
 diagrams rendered.
 
-```sh
-gem install asciidoctor asciidoctor-diagram asciidoctor-pdf
-# PlantUML additionally needs a JRE and Graphviz:
-#   apt install default-jre graphviz
+The build runs [Asciidoctor](https://asciidoctor.org) with
+Asciidoctor Diagram in its official Docker image and needs nothing
+but Docker. From the repository root:
 
-asciidoctor -r asciidoctor-diagram docs/arc42/arc42.adoc       # HTML
-asciidoctor-pdf -r asciidoctor-diagram docs/arc42/arc42.adoc   # PDF
+```sh
+docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp \
+  -v "$PWD":/documents -w /documents/docs/arc42 \
+  asciidoctor/docker-asciidoctor sh -c '
+    asciidoctor     -r asciidoctor-diagram -D build arc42.adoc &&
+    asciidoctor-pdf -r asciidoctor-diagram -D build arc42.adoc'
 ```
+
+This writes `docs/arc42/build/arc42.html` and
+`docs/arc42/build/arc42.pdf`.
 
 Output and the diagram cache land in `docs/arc42/build/`, which is
 git-ignored. Generated images are never committed - they are rebuilt
@@ -60,15 +66,12 @@ Build locally to see the whole document.
 
 ## Conventions
 
-- **Do not duplicate [VISION.md](../../VISION.md).** Vision owns the
-  product intent; arc42 owns how it is built. Link, don't copy.
+- **arc42 is the specification.** Product scope and requirements are
+  chapter 1.
 - **Chapter 9 is the only place in the repo where rationale lives**
   (see [CLAUDE.md](../../CLAUDE.md)). Everywhere else documents the
-  current state; the argument for a decision goes in the commit that
-  implements it, and only decisions with lasting structural impact
-  are promoted into chapter 9.
-- Open questions stay in VISION.md until they are answered. Answering
-  one means writing the result into the relevant chapter here and
-  removing it there.
+  current state, commit messages included. Only decisions with
+  lasting structural impact get a chapter 9 entry; all others are
+  simply visible in the code.
 - Not every chapter needs content. An empty chapter is a valid state
   and better than filler.

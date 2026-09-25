@@ -1,6 +1,54 @@
 == Risks and Technical Debt
 
 // Known risks and accumulated debt, ordered by priority, each with
-// what would mitigate it. Unresolved product questions stay in
-// VISION.md - this chapter is for problems we already carry, not
-// decisions we have not made yet.
+// what would mitigate it. This chapter is for problems we already
+// carry, not decisions we have not made yet.
+
+=== Risks
+
+[cols="1,2,2", options="header"]
+|===
+| Risk | Impact | Mitigation
+
+| Topics depend on the order of the chunks
+| Every exam and exercise pass sees only its chunk and the topics
+  so far. A topic first seen in a later chunk can end up split from,
+  or duplicated with, an existing one.
+| Every pass gets all current topics and may change them. A final
+  pass over the topics alone that merges duplicates removes the risk.
+
+| Missing lecture content
+| Open points are written from exams and exercises alone. Lecture
+  content no open point asks for is missing for the tutor, which then
+  teaches in its own words and notation.
+| `topic.md` lists the open points the lecture does not answer, and
+  the tutor marks what it explains on them.
+
+| Misclassified gradability tier
+| Tiers are assigned by the model without review. A Tier C task
+  classified as Tier B is posed and cannot be answered; a Tier A task
+  classified as Tier B loses a graded signal.
+| Checked by hand on the reference courses (Q8).
+
+| Wrong topics
+| Topics are built without review. A missing, split, or misnamed
+  topic propagates into progress, and fixing it means re-ingesting
+  the course. Material no topic takes up is visible nowhere.
+| `notes.md` feeds the exam passes. Topic review (chapter 1, out of
+  scope) removes the risk.
+
+| Shared rate limit and budget
+| All users run on one API key. Parallel ingestions exhaust its rate
+  limit and slow down every chat; one user's heavy use spends the
+  budget of all.
+| The worker concurrency limits parallel jobs; a spend limit on the
+  key caps the cost. Per-user keys (chapter 1, out of scope) remove
+  the risk.
+
+| Finalization lost on tab close
+| On tab close the transcript is sent as a `keepalive` request, which
+  browsers cap at 64 KiB and may drop. A long chat or a killed
+  browser loses its progress update.
+| Accepted for v0. The cheatsheet is unaffected; it is updated during
+  the chat.
+|===

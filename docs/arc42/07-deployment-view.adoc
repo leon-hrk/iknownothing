@@ -2,3 +2,52 @@
 
 // Infrastructure the system runs on and how building blocks map
 // onto it. Includes the self-hosting setup users are expected to run.
+
+[plantuml, target=deployment, format=svg]
+....
+include::diagrams/deployment.puml[]
+....
+
+The system runs on one host as a docker-compose setup of three
+services and one volume. It is set up for use on the host itself:
+`backend` publishes one port, bound to `localhost`, and speaks plain
+HTTP.
+
+[cols="1,3", options="header"]
+|===
+| Service | Content
+
+| `backend`
+| The application image running the FastAPI application. Serves the
+  HTTP API and the built frontend as static files.
+
+| `worker`
+| The same application image running the procrastinate worker. Runs
+  up to a configured number of jobs at the same time, so ingestions
+  of several users run in parallel instead of queueing behind each
+  other.
+
+| `postgres`
+| PostgreSQL with its own volume.
+
+| Volume `data/`
+| The filesystem of <<_persistence,Persistence>>, mounted into
+  `backend` and `worker`.
+|===
+
+Configuration is passed as environment variables from a `.env` file
+next to the compose file: the Anthropic API key, the model of each
+<<_ai_requests,model tier>>, the PostgreSQL credentials, the session
+secret, and the worker concurrency. The
+repository contains only `.env.example`. How the key and the file are
+protected is described in <<_secrets,chapter 8>>.
+
+An operator who serves a group of users over the network binds the
+port to the network and puts a TLS-terminating reverse proxy in front
+of `backend`; the proxy is not part of the setup.
+
+The deployment is bound to one host: `backend` and `worker` share the
+`data/` volume. All inference runs at Anthropic, so the host
+itself does little more than wait on the network. The number of users
+is bounded by the rate limit and budget of the one API key they share
+(chapter 11), not by the host.

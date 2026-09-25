@@ -7,6 +7,137 @@
 |===
 | Term | Definition
 
-|
-|
+| Assessed signal
+| A mastery signal in `progress.md` from a task the tutor graded
+  (Tier A). Counts as evidence.
+
+| Cheatsheet
+| `cheatsheet.md`: key terms, formulas, and solution strategies the
+  student has encountered. A living artifact, updated by the tutor
+  during chats. Read-only for the student.
+
+| Course
+| The top-level unit, owned by one user: sources, notes, derived files,
+  and student state for one exam.
+
+| Course-level chat
+| A session scoped to the whole course, for orientation and planning.
+  Loads the notes, the progress of every topic, the topic priorities,
+  and the cheatsheet, never a topic artifact.
+
+| Chat tool
+| An action the tutor takes during a chat through a tool call:
+  `update_cheatsheet`, `pose_task`.
+
+| Derived file
+| A file generated from the sources: `topics.json`, the topic
+  artifacts, and the intermediate results in `ingestion/`. Written once by ingestion;
+  read-only for the student.
+
+| Document type
+| Lecture material (slides or script), exercise sheet, or past exam.
+  Chosen on upload,
+  stored as the subdirectory of `sources/`, and the basis of source
+  priority.
+
+| Excerpt
+| A passage of the lecture material transcribed during a lecture
+  pass, with its file and pages, answering an open point.
+
+| Finalization
+| Updating a topic's `progress.md` from a topic-level chat. Happens
+  when the chat ends: the student opens another chat or closes the
+  tab.
+
+| Gradability tier
+| The class of a task by how the tutor can handle it. *Tier A*: posed
+  and graded. *Tier B*: posed, self-assessed. *Tier C*: out of reach,
+  not posed, named to the student.
+
+| Input file
+| A file the pipeline takes as given: the uploaded PDFs and
+  `notes.md`.
+
+| Ingestion
+| The pipeline that turns a course's PDFs into topics, topic
+  directories, and the topic list, in passes.
+
+| Living artifact
+| A file derived from the student rather than from the material:
+  `cheatsheet.md` and `progress.md`. The cheatsheet is updated during
+  chats, progress on finalization.
+
+| Notes file
+| `notes.md`: the student's free-form remarks about the course, which
+  the AI must respect. Required, uploaded when the course is created,
+  and read-only afterwards.
+
+| Open point
+| Something the tutor needs to teach a topic that the exams and
+  exercises do not contain: a definition, formula, derivation, or
+  notation. Written by exam and exercise passes, answered by lecture
+  passes; unanswered ones stay in `topic.md`.
+
+| Operator
+| The person who runs an instance, provides its Anthropic API key,
+  and manages its accounts.
+
+| Pass
+| One ingestion request over a chunk of the material - exam,
+  exercise, or lecture - together with the current topics or their
+  open points. Returns changes, which Ingestion applies.
+
+| Progress
+| `topics/<topic>/progress.md`: the student's mastery of one topic,
+  with assessed and self-reported signals kept apart. A living
+  artifact.
+
+| Self-reported signal
+| A mastery signal in `progress.md` from the student's own rating of a
+  Tier B task. Not evidence, and never presented as assessed.
+
+| Session
+| One chat: course-level or topic-level. Exists only in the browser
+  while it is open; one is open at a time.
+
+| Source
+| An uploaded PDF in `sources/`.
+
+| Source priority
+| The ranking of document types. For what a topic is: past exams >
+  exercises; the lecture creates no topics. For solution style and
+  notation: lecture > exercise solutions > past exam solutions > exam
+  question.
+
+| Student
+| The user of the tutor. Owns courses.
+
+| Student state
+| The progress files and `cheatsheet.md`. Derived from the student,
+  not from the material.
+
+| Topic
+| A unit of exam content, defined by what the exam asks. Carries a
+  priority.
+
+| Topic artifact
+| `topics/<topic>/topic.md`: description, exam relevance, task types,
+  example problems with their tier, difficulty, and working time,
+  solution approaches, lecture excerpts, out-of-reach task types, and
+  open points.
+
+| Topic directory
+| `topics/<topic>/`: the topic artifact and its progress.
+
+| Topic list
+| `topics.json`: the topics in priority order, each with its priority
+  and topic directory. Orders the topic tree and gives the course-level
+  chat the priorities.
+
+| Topic-level chat
+| A session scoped to one topic, for tutoring and quizzing.
+
+| v0
+| The first version. Its scope is chapter 1; what it does not include
+  is listed under Out of Scope there.
 |===

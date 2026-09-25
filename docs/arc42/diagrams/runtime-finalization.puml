@@ -1,0 +1,20 @@
+@startuml
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+participant "Frontend" as frontend
+participant "Tutor\n(Backend)" as tutor
+database "PostgreSQL" as db
+participant "Tutor\n(Worker)" as worker
+participant "Course Store" as store
+participant "AI Client" as ai
+
+frontend -> tutor : POST transcript\n(another chat opened or tab closed)
+tutor -> db : enqueue finalization
+
+db -> worker : job with transcript
+worker -> store : read progress.md
+worker -> ai : transcript, progress
+ai --> worker : updated progress
+worker -> store : write progress.md
+@enduml

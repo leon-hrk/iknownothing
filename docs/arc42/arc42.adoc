@@ -7,18 +7,8 @@
 :sectanchors:
 :icons: font
 :source-highlighter: rouge
-:imagesdir: build
-:imagesoutdir: build
 :plantuml-format: svg
 :diagram-cachedir: build/.cache
-
-Architecture documentation following the https://arc42.org[arc42]
-template.
-
-Product intent and scope live in
-link:../../VISION.md[VISION.md]; this document describes how the
-system is built. Documentation conventions are in
-link:../../CLAUDE.md[CLAUDE.md].
 
 include::01-introduction-and-goals.adoc[]
 

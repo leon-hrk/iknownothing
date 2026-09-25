@@ -3,3 +3,39 @@
 // Everything the architecture is not free to choose: technical,
 // organisational, and conventions. A constraint is a fact, not a
 // decision - decisions belong in chapter 9.
+
+=== Technical Constraints
+
+[cols="1,3", options="header"]
+|===
+| Constraint | Detail
+
+| Docker deployment
+| The system ships as Docker images, run with docker-compose.
+  Nothing is installed on the host beyond Docker.
+
+| No local ML
+| The image contains application code only - no model weights, no
+  GPU requirement, no multi-GB downloads. Anything that needs a model
+  runs at the AI provider.
+|===
+
+=== Conventions
+
+[cols="1,3", options="header"]
+|===
+| Convention | Detail
+
+| Architecture documentation
+| arc42, AsciiDoc, diagrams in PlantUML (see
+  link:README.md[docs/arc42/README.md]). The code is built against
+  this specification; spec and code are changed together.
+
+| Current-state documentation
+| Code comments and docs describe the present design only. Rationale
+  lives in chapter 9 (see link:../../CLAUDE.md[CLAUDE.md]).
+
+| Branching
+| All work on `feature/*`, `fix/*`, or `docs/*` branches, landed on
+  `main` as one squashed commit.
+|===

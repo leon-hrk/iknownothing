@@ -20,8 +20,17 @@ docs/arc42/build/
 .DS_Store
 Thumbs.db
 
-# Language- and framework-specific entries are added once the stack
-# is chosen (see VISION.md, Open Questions).
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / frontend
+node_modules/
+dist/
 
 # Claude Code local settings
 .claude/settings.local.json

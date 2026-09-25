@@ -1,0 +1,26 @@
+@startuml
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+participant "Frontend" as frontend
+participant "Tutor" as tutor
+participant "Course Store" as store
+participant "AI Client" as ai
+
+frontend -> tutor : POST scope, transcript, message
+tutor -> store : read context for scope
+tutor -> ai : context, transcript, chat tools
+
+loop until the reply has no tool call
+  ai --> tutor : streamed reply
+  tutor --> frontend : SSE text
+  opt tool call
+    tutor -> store : execute tool
+    tutor --> frontend : SSE tool event
+    tutor -> ai : tool result
+  end
+end
+
+tutor --> frontend : SSE end
+frontend -> frontend : append reply to transcript
+@enduml
