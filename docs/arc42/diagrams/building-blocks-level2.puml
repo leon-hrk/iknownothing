@@ -1,0 +1,31 @@
+@startuml
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+rectangle "Backend / Worker" {
+  component "Accounts" as accounts
+  component "Courses" as courses
+  component "Ingestion" as ingestion
+  component "Tutor" as tutor
+  component "Course Store" as store
+  component "AI Client" as aiclient
+}
+
+database "PostgreSQL" as db
+folder "Filesystem" as fs
+cloud "Anthropic API" as ai
+
+courses --> store
+courses --> ingestion : enqueue
+ingestion --> courses : status
+ingestion --> store
+ingestion --> aiclient
+tutor --> store
+tutor --> aiclient
+aiclient --> ai
+
+accounts --> db
+courses --> db
+tutor --> db
+store --> fs
+@enduml

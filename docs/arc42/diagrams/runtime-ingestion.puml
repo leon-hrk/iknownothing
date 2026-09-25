@@ -1,0 +1,39 @@
+@startuml
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+actor "Student" as student
+participant "Frontend" as frontend
+participant "Courses" as courses
+participant "Ingestion\n(Worker)" as ingestion
+participant "Course Store" as store
+participant "AI Client" as ai
+
+student -> frontend : create course,\nupload PDFs and notes.md
+frontend -> courses : upload
+courses -> store : sources/<type>/<file>.pdf,\nnotes.md
+student -> frontend : start ingestion
+frontend -> courses : start
+courses -> ingestion : enqueue job
+activate ingestion
+
+group Exam passes, then exercise passes - one chunk at a time
+  ingestion -> ai : PDF chunk, notes.md, current topics
+  ai --> ingestion : changes to the topics
+  ingestion -> store : ingestion/passes/<n>.json
+end
+
+group Lecture passes - chunks in parallel
+  ingestion -> ai : PDF chunk, open points
+  ai --> ingestion : excerpts
+  ingestion -> store : ingestion/lecture/<n>.json
+end
+
+ingestion -> store : topics/<topic>/topic.md,\ntopics.json
+ingestion -> courses : ready
+deactivate ingestion
+
+loop while ingesting
+  frontend -> courses : poll status
+end
+@enduml

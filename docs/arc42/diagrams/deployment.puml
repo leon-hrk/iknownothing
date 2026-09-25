@@ -1,0 +1,22 @@
+@startuml
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+actor "Student" as student
+cloud "Anthropic API" as ai
+
+node "Host (docker-compose)" {
+  node "backend\n(application image)" as backend
+  node "worker\n(application image)" as worker
+  node "postgres" as db
+  folder "Volume\ndata/" as fs
+}
+
+student --> backend : HTTP (localhost)
+backend --> db
+backend --> fs
+backend --> ai
+worker --> db
+worker --> fs
+worker --> ai
+@enduml

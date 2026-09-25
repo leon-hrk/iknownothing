@@ -4,6 +4,73 @@
 // stimulus, the system's reaction, and a measurable response. The
 // top goals are summarised in chapter 1.
 
+v0 is a feasibility study; the scenarios are its success criteria.
+They are checked by hand on reference courses: at least two real
+courses, one with several past exams and one with at most one.
+
 === Quality Tree
 
+* *Exam readiness*
+** Topic coverage (Q1)
+** Material preparation (Q2)
+** Guided learning (Q3)
+** Cheatsheet (Q4)
+** Exam level (Q5)
+* *Cost efficiency*
+** Ingestion cost (Q6)
+** Tutoring cost (Q7)
+* *Honesty*
+** Gradability tiers (Q8)
+
 === Quality Scenarios
+
+[cols="1,3,4", options="header"]
+|===
+| # | Stimulus | Response
+
+| Q1
+| A reference course is ingested.
+| Every task of every past exam falls under a topic. No topic that a
+  reviewer finds in the past exams or in `notes.md` is missing, and
+  no topic is split or duplicated.
+
+| Q2
+| A reviewer compares the topic artifacts with the PDFs.
+| Task types, difficulty, and priority match the past exams. Example
+  problems and excerpts are transcribed correctly, formulas and
+  figures included. The excerpts cover the definitions, formulas, and
+  notation the topic's tasks use.
+
+| Q3
+| The student works through a topic in several sessions.
+| The tutor teaches from what the student cannot do yet to exam-style
+  tasks. Every session starts where the last one ended, as recorded
+  in `progress.md`; `progress.md` names what was practised, with
+  assessed and self-reported signals apart.
+
+| Q4
+| The student works through several topics without asking for the
+  cheatsheet.
+| `cheatsheet.md` contains the key terms, formulas, and solution
+  strategies that came up, grouped by topic, without duplicates.
+
+| Q5
+| The student asks for harder and harder tasks.
+| Posed tasks stay within the difficulty and working time of the
+  course's past exam tasks. Once the exam level is reached, the tutor
+  says so instead of going beyond it.
+
+| Q6
+| A reference course is ingested.
+| The ingestion costs at most 5 €.
+
+| Q7
+| The student prepares a reference course to exam readiness.
+| All chats and finalizations of the course together cost no more
+  than its ingestion.
+
+| Q8
+| A reviewer checks the gradability tier of the example problems.
+| No Tier C task is posed as Tier A or B. A reviewer finds no Tier A
+  task classified as Tier B.
+|===

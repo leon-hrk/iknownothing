@@ -1,5 +1,32 @@
 # CLAUDE.md
 
+## Project
+
+iknownothing is a self-hosted, AI-powered exam preparation tutor:
+users upload course materials, the agent distills them into
+structured topics and tutors them through to exam readiness,
+keeping a cheatsheet and per-topic progress along the way. Scope,
+requirements, and quality goals are in
+[arc42 chapter 1](docs/arc42/01-introduction-and-goals.adoc).
+
+## Architecture spec drives the code
+
+The architecture is specified in [docs/arc42](docs/arc42/README.md).
+Code is written against that spec — read the relevant chapters before
+implementing, and keep implementation and spec consistent.
+
+The spec is not frozen. When development shows that something in it
+is wrong, incomplete, or impractical, change the spec in the same
+branch as the code. Code and arc42 never disagree on `main`.
+
+## Branching
+
+- All work happens on a branch off `main`: `feature/<name>` or
+  `fix/<name>` (`docs/<name>` for documentation-only changes).
+- No direct commits to `main`.
+- A branch lands on `main` as **one squashed commit**. Its message
+  follows the commit rules below.
+
 ## Documentation: current state only
 
 **Documents describe how things are, not how we got there.** Code,

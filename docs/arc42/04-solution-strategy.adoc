@@ -3,3 +3,86 @@
 // The handful of fundamental decisions that shape everything else:
 // technology choices, top-level decomposition, how the quality goals
 // are achieved. A short summary - the detail belongs in chapters 5-9.
+
+=== Technology
+
+[cols="1,3", options="header"]
+|===
+| Area | Choice
+
+| Backend
+| Python (see <<adr-python-backend>>) with FastAPI (see
+  <<adr-fastapi>>).
+
+| Frontend
+| Single-page application in React and TypeScript, talking to the
+  backend over an HTTP API (see <<adr-react-frontend>>). Chat replies
+  stream as Server-Sent Events; there are no WebSockets.
+
+| AI
+| Anthropic Messages API, called directly (see <<adr-anthropic>>).
+  Ingestion sends the PDFs as documents and uses Claude's vision
+  capability.
+
+| Content storage
+| Filesystem. Uploaded PDFs, all derived Markdown artifacts, and
+  student state are files, namespaced per user.
+
+| Relational storage
+| PostgreSQL for users, course metadata, and the job queue.
+
+| Background jobs
+| Job queue in PostgreSQL (procrastinate), executed by a worker
+  process from the application image (see <<adr-postgres-job-queue>>).
+
+| Retrieval
+| None. Structured topic tagging replaces retrieval; there is no
+  vector store and no embedding pipeline.
+|===
+
+=== Principles
+
+. *Markdown as the data layer.* All derived content lives in
+  Markdown files the student can open in the UI. JSON holds only the
+  topic list and intermediate pipeline results.
+. *Artifacts are self-contained.* What the tutor cannot read as text
+  does not exist for it. Every figure, diagram, and plot is
+  represented as ASCII art or a textual description.
+. *Ingest once.* Expensive PDF analysis happens once per course, and
+  tutoring sessions run on small, focused artifacts.
+. *Context discipline.* Sessions load only the current topic's
+  artifacts - never entire courses.
+. *Fail gracefully on missing materials.* The pipeline adapts to
+  whatever the student can provide.
+. *Multi-tenant by design.* All data is strictly namespaced per user;
+  there is no shared state between users.
+
+=== Quality Goals
+
+[cols="1,3", options="header"]
+|===
+| Quality goal | Approach
+
+| Exam readiness
+| Past exams define the topics; difficulty and working time of every
+  example problem are calibrated against them; progress per topic
+  and a cheatsheet written during the chat.
+
+| Cost efficiency
+| Ingest once, context discipline, two model tiers, prompt caching
+  in chats.
+
+| Transparency
+| Markdown as the data layer, every file readable in the UI.
+
+| Honesty
+| Gradability tiers on every task; Tier C named to the student;
+  assessed and self-reported signals stored separately.
+
+| Tenant isolation
+| Per-user namespacing of files and data.
+
+| Ease of self-hosting
+| docker-compose deployment; no local models, all inference at
+  Anthropic.
+|===

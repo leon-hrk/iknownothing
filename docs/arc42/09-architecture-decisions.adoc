@@ -2,7 +2,7 @@
 
 // The one place in the repo where rationale is documented (see
 // CLAUDE.md). Only decisions with lasting structural impact belong
-// here - everything else lives in its commit message.
+// here - everything else is simply visible in the code.
 //
 // Newest first. One entry per decision, using this shape:
 //
@@ -18,3 +18,220 @@
 //
 // Consequences::
 // What this costs us and what it rules out.
+
+[[adr-ingestion-passes]]
+=== 9. Ingestion builds the topics in passes over the PDFs
+
+Status:: accepted
+
+Context::
+Past exams define the topics. To tutor a topic, the tutor needs its
+task types, difficulty, solution approaches, a few original tasks,
+and what the lecture says about it - not the full text of the
+material. Converting all material to Markdown costs output tokens for
+every page, and assigning the converted text to topics needs an
+addressing scheme for its parts. Most of it is never used in
+tutoring.
+
+Decision::
+Nothing is converted as a whole. Ingestion reads the PDFs directly
+in passes - exams, then exercises, then lecture - each with the
+topics so far, and each pass returns only changes, which the code
+applies. Only example problems and lecture excerpts are transcribed.
+
+Consequences::
+The large model reads the originals, figures included, and no
+conversion errors propagate. Every page reaches a model once. Exam and
+exercise passes run one after another, so ingestion takes longer.
+Material no topic takes up is visible nowhere; the student and the
+tutor see the course only through the topics (chapter 11). The code,
+not the model, writes the files, so a pass cannot drop content it did
+not change.
+
+[[adr-model-tiers]]
+=== 8. AI requests run on two model tiers
+
+Status:: accepted
+
+Context::
+The cost of a request grows with its input tokens and the price of
+the model. Lecture passes and finalization read much text but do
+mechanical work. Exam passes, exercise passes, and the chat decide
+what the student learns and at which level. Ingestion
+and tutoring have a cost limit (chapter 10).
+
+Decision::
+Request types with large input and mechanical work run on a small
+model; request types whose result defines topics, difficulty, or
+teaching run on a large model. The model of each tier is
+configuration.
+
+Consequences::
+The large model reads the exams and exercises once and otherwise
+sees only condensed input: the topics and one chat's context. The
+lecture, usually the largest part of the material, only reaches the
+small model. Models can be
+exchanged without code changes. The chat is the only large-model
+request type that repeats per student interaction, so its cost
+depends on prompt caching.
+
+[[adr-operator-key]]
+=== 7. The operator provides the API key and the accounts
+
+Status:: accepted
+
+Context::
+Every AI call needs an Anthropic API key. Keys held per user need an
+account settings UI and encrypted storage, and the backend sends the
+key in plain text with every request, so the decryption key would sit
+on the same host. v0 is a feasibility study with a small group of test
+users.
+
+Decision::
+The operator provides one Anthropic API key for the instance as
+configuration and creates all accounts from the command line. Users
+have no account settings.
+
+Consequences::
+There is no settings UI, no key storage, and no registration. The key
+stands in plain text in `.env` and is protected by file permissions
+and a spend limit instead of encryption (chapter 8). The operator pays
+for all users, and all users share one budget and one rate limit.
+Per-user keys (chapter 1, out of scope) need account settings and key
+storage.
+
+[[adr-chat-tools]]
+=== 6. The tutor acts through a fixed set of chat tools
+
+Status:: accepted
+
+Context::
+During a chat the tutor does more than write text. It updates the
+cheatsheet while the student works, marks posed tasks with their tier
+so the UI can switch to self-rating. The backend has to recognise each of these
+reliably, without parsing prose. Retrieval and open-ended agentic
+tool use are out of scope (chapter 1).
+
+Decision::
+Chat requests carry a fixed set of tools, defined and executed by
+the Tutor (chapter 8). The model decides when to call them. The set
+does not change at runtime.
+
+Consequences::
+Tool effects are structured data the backend stores and the frontend
+reacts to. Cheatsheet updates need no extra request; they are part of
+the reply. A reply can span several API requests, one per tool round.
+
+[[adr-anthropic]]
+=== 5. All AI calls go to the Anthropic API
+
+Status:: accepted
+
+Context::
+Ingestion reads the PDFs remotely, since the image contains no
+models. It has to read slides and exams visually - math, diagrams, tables - so
+the model must accept PDFs as document input and read them with
+vision. Supporting several providers means an abstraction over their
+differing document and streaming interfaces.
+
+Decision::
+v0 uses the Anthropic Messages API only, called directly through the
+Anthropic SDK. There is no provider abstraction.
+
+Consequences::
+Ingestion, tutoring, and grading use one API and one
+model family. The instance needs an Anthropic API key, and course
+material always goes to a US provider. Adding another provider, such
+as an EU-hosted one (chapter 1, out of scope), requires introducing a
+provider abstraction first.
+
+[[adr-postgres-job-queue]]
+=== 4. Background jobs run on a PostgreSQL-backed queue
+
+Status:: accepted
+
+Context::
+Ingestion runs for minutes and issues many parallel requests to the
+Anthropic API, paid for with the instance's key. A restart during a run
+must not lose it or pay for completed work twice. The UI shows the
+progress of running jobs. Session finalization runs in the
+background as well. The deployment is a small
+self-hosted docker-compose setup that already contains PostgreSQL.
+
+Decision::
+Background jobs are queued in PostgreSQL using procrastinate. A worker
+process built from the application image executes them.
+
+Consequences::
+No message broker is deployed; the worker runs as its own service
+from the application image (see <<_deployment_view,chapter 7>>). Jobs survive
+restarts, are retried, and their state is queryable from the API.
+Pipeline steps persist their results as files, so a retried job
+skips the steps whose results already exist and pays for nothing
+twice. Job
+throughput is bounded by PostgreSQL, which is sufficient for small
+deployments.
+
+[[adr-fastapi]]
+=== 3. The backend uses FastAPI
+
+Status:: accepted
+
+Context::
+The backend is a pure HTTP API for the React frontend. Its load is
+I/O-bound: chat replies are streamed, and ingestion issues many long,
+parallel requests to the Anthropic API. The API contract between
+frontend and backend has to be explicit.
+
+Decision::
+The backend is built on FastAPI.
+
+Consequences::
+Async is the default throughout, and streaming is native. The OpenAPI
+schema is generated from the code and can produce a typed TypeScript
+client. Authentication, user management, database access, and
+migrations are not built in and are assembled from separate
+libraries.
+
+[[adr-react-frontend]]
+=== 2. The frontend is a React single-page application
+
+Status:: accepted
+
+Context::
+The UI is Markdown throughout: tutor replies with LaTeX math, tables,
+and ASCII diagrams, streamed into the chat while they
+arrive, and every course file is viewed as rendered Markdown. Math
+rendering and streaming Markdown rendering are browser-side
+concerns, and their most mature libraries are in the
+JavaScript ecosystem, most of them for React.
+
+Decision::
+The frontend is a single-page application in React and TypeScript.
+The backend serves it an HTTP API and does not render pages.
+
+Consequences::
+The project has two languages and two toolchains. Frontend and
+backend are coupled only through the API, so the API contract has to
+be explicit.
+
+[[adr-python-backend]]
+=== 1. The backend is written in Python
+
+Status:: accepted
+
+Context::
+The backend language has to be chosen before any code is written.
+Retrieval, vector search, and agentic tooling are out of scope for v0
+but named as future direction (chapter 1). Most libraries for
+embeddings, vector stores, and LLM tooling are Python-first.
+
+Decision::
+The backend is written in Python.
+
+Consequences::
+Retrieval can be added later inside the existing backend, without a
+second runtime or a language boundary. The container stays thin only
+as long as v0 does not pull in heavy ML dependencies; the "no local
+ML" constraint (chapter 2) applies to Python packages as much as to
+model weights.

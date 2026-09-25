@@ -3,3 +3,184 @@
 // Concerns that span building blocks and would otherwise be
 // re-explained in several places: domain model, persistence,
 // security, error handling, and similar.
+
+=== Persistence
+
+Data is split across two stores by kind:
+
+* *Filesystem* - course content: uploaded PDFs and all Markdown and
+  JSON files, derived or written by the student.
+* *PostgreSQL* - users, course metadata, and the job queue.
+
+Chats are not stored. A chat exists in the browser while it is open;
+what lasts from it is written to `progress.md` and `cheatsheet.md`.
+
+==== Storage Layout
+
+Every course has one directory. Nothing outside `data/<user>/` belongs
+to that user, and nothing inside it is read on behalf of another user.
+
+....
+data/<user>/<course>/
+├── sources/
+│   ├── lectures/           lecture slides or script
+│   ├── exercises/          exercise sheets and solutions
+│   └── exams/              past exams and solution proposals
+│       └── <file>.pdf      uploaded original
+├── notes.md                student's remarks
+├── cheatsheet.md           living artifact
+├── topics.json             topic list
+├── ingestion/              intermediate pipeline results
+│   ├── passes/<n>.json     topics after each exam and exercise pass
+│   └── lecture/<n>.json    excerpts of each lecture pass
+└── topics/<topic>/
+    ├── topic.md            topic artifact
+    └── progress.md         living artifact
+....
+
+The subdirectory of `sources/` is the document type, chosen by the
+student on upload; it is what the pipeline's source priority is
+applied to.
+
+The files fall into three classes:
+
+[cols="1,2,2", options="header"]
+|===
+| Class | Files | Written by
+
+| Input
+| `sources/*`, `notes.md`
+| Upload
+
+| Derived
+| `topics.json`, `topic.md`, `ingestion/`
+| Ingestion, once
+
+| Student state
+| `cheatsheet.md`, `progress.md`
+| Chat tools for `cheatsheet.md`, finalization for `progress.md`
+|===
+
+The student edits no file. Every Markdown file is shown rendered and
+read-only in the UI; uploaded PDFs are not shown.
+
+==== Cheatsheet Updates
+
+`cheatsheet.md` is written only by the tutor, during any chat of the
+course:
+
+* The Course Store serializes writes per file.
+* The tutor changes one entry - a heading and its body - in the
+  current file, never the whole file.
+* An open cheatsheet view reloads when the tutor changes it.
+
+=== Ingestion Passes
+
+During ingestion the topics are data, not Markdown. Ingestion renders
+`topic.md` from them once all passes are done.
+
+* A topic has a slug, a name, a priority, and one text field per
+  part of its artifact (chapter 1). The slug is its directory name.
+* A pass receives the current topics and returns changes: new
+  topics, and for existing ones the new content of the fields it
+  changes. Fields it does not name stay as they are.
+* Ingestion checks the changes - known or new, valid, unique slugs
+  and known field names - and repeats the request with the errors on
+  a violation.
+* A chunk holds whole files in file name order up to a page budget;
+  a file over the budget is split by pages. An exam and its solutions
+  in a separate file thus usually share a chunk.
+* A lecture pass returns excerpts per open point, with file and page
+  range. Ingestion adds them to the topic; an open point with an
+  excerpt counts as answered.
+
+=== Security
+
+==== Accounts
+
+The operator manages accounts with the command line of the
+application image; the UI has no registration and no account
+settings.
+
+....
+docker compose exec backend iknownothing user add <name>
+docker compose exec backend iknownothing user remove <name>
+docker compose exec backend iknownothing user reset-password <name>
+....
+
+The commands prompt for the password and store only a salted hash in
+PostgreSQL. Removing a user deletes their course metadata and their
+directory `data/<user>/`.
+
+The frontend logs in with name and password and receives a session
+cookie (`HttpOnly`, `SameSite=Strict`), signed with the session secret.
+Every API request except login requires it and is served for the
+user it belongs to.
+
+==== Secrets
+
+The Anthropic API key and the session secret stand in plain text in
+`.env` (see <<adr-operator-key>>). They are protected by:
+
+* `.env` is never committed; the repository holds `.env.example` with
+  placeholders.
+* `.env` is readable only by the operator (`chmod 600`).
+* The API key never leaves the AI Client: it appears in no log, error
+  message, or API response.
+* The operator creates the key in an Anthropic workspace of its own
+  with a spend limit, so a leaked key has a bounded cost and can be
+  revoked on its own.
+
+=== AI Requests
+
+Every request type runs on one of two model tiers (see
+<<adr-model-tiers>>). The configuration sets the model of each tier.
+
+[cols="1,1", options="header"]
+|===
+| Request type | Tier
+
+| Lecture pass | small
+| Finalization | small
+| Exam pass | large
+| Exercise pass | large
+| Chat, including grading | large
+|===
+
+Chat requests put the context of the chat first and mark it for
+prompt caching, since every message sends it again.
+
+The AI Client logs model and token usage of every request with user,
+course, and request type. The cost of an ingestion and of a course's
+tutoring is read from this log.
+
+=== Concurrency
+
+Backend and worker are asynchronous throughout. Every call to the
+Anthropic API and every other wait on I/O is non-blocking, so one
+backend process holds many streaming chats at once, and one worker
+process runs several jobs and the parallel requests within them.
+Blocking work, such as splitting a PDF into page chunks, runs off the
+event loop.
+
+=== Chat Tools
+
+The tutor acts through a fixed set of tools, offered with every chat
+request and executed by the Tutor (see <<adr-chat-tools>>). No tool
+reaches outside the requesting user's course.
+
+[cols="1,1,3", options="header"]
+|===
+| Tool | Offered in | Effect
+
+| `update_cheatsheet`
+| All chats
+| Adds, changes, or removes one entry of `cheatsheet.md`.
+
+| `pose_task`
+| Topic-level
+| Marks a task in the reply with its gradability tier. For Tier B
+  the frontend shows "show solution, then rate yourself"; the rating
+  becomes a structured message in the transcript. Finalization takes
+  the self-reported signals from these.
+|===

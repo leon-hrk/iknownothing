@@ -1,0 +1,16 @@
+@startuml
+left to right direction
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+actor "Student" as student
+actor "Operator" as operator
+rectangle "**iknownothing**" as system
+cloud "Anthropic API" as ai
+
+student --> system : course material,\nnotes, chat
+system --> student : tutoring, grading,\nMarkdown files
+operator --> system : deployment, configuration,\nAPI key, accounts
+system --> ai : documents, prompts\n(instance API key)
+ai --> system : topics, excerpts,\nreplies
+@enduml

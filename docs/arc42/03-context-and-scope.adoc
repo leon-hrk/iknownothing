@@ -4,6 +4,61 @@
 // crosses the boundary. Business context first, technical context
 // only where the protocol or channel matters.
 
+The system is one self-hosted instance. Its database and file storage
+are part of it and deployed with it; they are not communication
+partners.
+
 === Business Context
 
+[plantuml, target=business-context, format=svg]
+....
+include::diagrams/business-context.puml[]
+....
+
+[cols="1,2,2", options="header"]
+|===
+| Partner | Input to the system | Output from the system
+
+| Student
+| Login, course PDFs, `notes.md`, chat messages and answers,
+  self-ratings for Tier B tasks
+| Tutoring and grading in chat, all Markdown files of the course
+  for reading
+
+| Operator
+| Deployment, instance configuration including the Anthropic API
+  key, user accounts
+| A running instance
+
+| Anthropic API
+| Topics with example problems and lecture excerpts transcribed from
+  the PDFs, generated artifacts, tutor replies and grading
+| PDF documents, topics, artifacts, and prompts -
+  authenticated with the instance's API key
+|===
+
+The student's course material leaves the instance only towards the
+Anthropic API.
+
 === Technical Context
+
+[cols="1,1,3", options="header"]
+|===
+| Partner | Channel | Notes
+
+| Student
+| Browser, HTTP
+| Web UI over a JSON HTTP API. A chat message is a `POST` carrying
+  the chat's transcript, whose response streams the reply and its tool events as Server-Sent
+  Events. Ingestion progress is polled from the course status.
+
+| Operator
+| Docker host
+| docker-compose, `.env`, and the account commands of the
+  application image (chapter 8).
+
+| Anthropic API
+| HTTPS
+| Outbound only. Requests carry PDFs as document input. Every request
+  carries the instance's API key.
+|===
