@@ -19,36 +19,28 @@ include::diagrams/runtime-ingestion.puml[]
   without `notes.md`. From here on, nothing in the course can be
   added or changed by the student.
 . The worker runs the job. Ingestion executes the steps below in
-  order. Exam and exercise passes run one after another, since each
-  builds on the topics of the one before; lecture passes run
-  concurrently. Every step
-  writes its results through the Course Store and reports itself to
-  Courses as the current step.
-.. *Exam passes.* The past exam PDFs, in chunks
-   (<<_ingestion_passes,chapter 8>>). Each pass sends one chunk as
-   PDF documents, `notes.md`, and the current topics, and receives
-   the changes, which Ingestion applies. The topics after every pass
-   are written to `ingestion/passes/<n>.json`. The first pass also
-   returns the course language, stored in the course metadata.
-.. *Exercise passes.* The same with the exercise PDFs.
-.. *Lecture passes.* The lecture PDFs, in chunks. Each request
-   carries one chunk and the open points of all topics and returns
-   the excerpts found in it, written to `ingestion/lecture/<n>.json`.
+  order. Every step writes its results through the Course Store and
+  reports itself to Courses as the current step.
+.. *Topic extraction.* One request sends all exam and exercise PDFs
+   as documents together with `notes.md`
+   (<<_topic_extraction,chapter 8>>) and receives the course language
+   and the topics with their sources, which Ingestion checks and
+   writes to `ingestion/topics.json`. Courses stores the language in
+   the course metadata.
 .. *Topic files.* No AI call: `topic.md` of every topic is written
-   from the final topics and the excerpts, then `topics.json`.
+   from the topics, then `topics.json`.
 . Courses sets the course to _ready_. The frontend polls the course
   status while ingestion runs and shows the topic tree once it is
   ready.
 
-Exam and exercise passes apply the fallback
-strategies (chapter 1) according to the number of past
-exams in the course.
+Topic extraction applies the fallback strategies (chapter 1)
+according to the number of past exams in the course.
 
 ==== Failure and Resumption
 
 * Results are written atomically, so a result that exists is
   complete. Before issuing a request, a step checks for its result
-  and skips work that is already done - per pass.
+  and skips work that is already done.
 * The AI Client retries transient API errors (rate limit, overload).
   A job that fails is retried by the queue and resumes at the first
   missing result.
@@ -72,7 +64,8 @@ between requests.
 . The frontend posts the chat's scope (the course or one topic), its
   transcript so far, and the student's message.
 . Tutor assembles the context for the scope through the Course Store
-  (chapter 1, Tutoring Sessions) and sends it with the transcript and
+  (chapter 1, Tutoring Sessions) - for a topic-level chat, its source
+  pages first, cut out of the PDFs - and sends it with the transcript and
   the <<_chat_tools,chat tools>> through the AI Client.
 . The reply streams to the frontend as Server-Sent Events.
 . When the model calls a tool, Tutor executes it and continues the

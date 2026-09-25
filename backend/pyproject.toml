@@ -1,0 +1,28 @@
+[project]
+name = "iknownothing"
+version = "0.0.0"
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=1.8",
+    "pydantic>=2",
+    "pypdf>=6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+ikn-dev = "iknownothing.devcli:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+iknownothing = ["prompts/*.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

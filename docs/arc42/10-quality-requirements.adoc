@@ -36,10 +36,9 @@ courses, one with several past exams and one with at most one.
 
 | Q2
 | A reviewer compares the topic artifacts with the PDFs.
-| Task types, difficulty, and priority match the past exams. Example
-  problems and excerpts are transcribed correctly, formulas and
-  figures included. The excerpts cover the definitions, formulas, and
-  notation the topic's tasks use.
+| Priority matches the past exams. The sources of every topic name
+  each of its tasks with the right pages, including the figures and
+  solutions they need, and no page without a task of the topic.
 
 | Q3
 | The student works through a topic in several sessions.
@@ -70,7 +69,8 @@ courses, one with several past exams and one with at most one.
   than its ingestion.
 
 | Q8
-| A reviewer checks the gradability tier of the example problems.
+| A reviewer checks the gradability tier of the tasks in the topics'
+  sources.
 | No Tier C task is posed as Tier A or B. A reviewer finds no Tier A
   task classified as Tier B.
 |===

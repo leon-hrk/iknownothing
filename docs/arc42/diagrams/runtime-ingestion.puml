@@ -17,17 +17,10 @@ frontend -> courses : start
 courses -> ingestion : enqueue job
 activate ingestion
 
-group Exam passes, then exercise passes - one chunk at a time
-  ingestion -> ai : PDF chunk, notes.md, current topics
-  ai --> ingestion : changes to the topics
-  ingestion -> store : ingestion/passes/<n>.json
-end
-
-group Lecture passes - chunks in parallel
-  ingestion -> ai : PDF chunk, open points
-  ai --> ingestion : excerpts
-  ingestion -> store : ingestion/lecture/<n>.json
-end
+ingestion -> ai : all PDFs, notes.md
+ai --> ingestion : language, topics with sources
+ingestion -> store : ingestion/topics.json
+ingestion -> courses : language
 
 ingestion -> store : topics/<topic>/topic.md,\ntopics.json
 ingestion -> courses : ready

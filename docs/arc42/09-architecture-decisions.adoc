@@ -19,30 +19,82 @@
 // Consequences::
 // What this costs us and what it rules out.
 
-[[adr-ingestion-passes]]
-=== 9. Ingestion builds the topics in passes over the PDFs
+[[adr-source-pages]]
+=== 11. Topics reference their source pages instead of transcribing them
 
 Status:: accepted
 
 Context::
+To tutor a topic, the tutor needs its original tasks, their
+solutions, and the professor's notation. Transcribing them during
+ingestion takes tens of thousands of output tokens per exam - the
+most expensive tokens - and can exceed the output limit of a
+request. Transcription also loses or distorts the figures and
+formulas the tutor then works from. A task usually fills one or two
+pages of a PDF.
+
+Decision::
+Ingestion extracts only the topics - priority, description, and for
+every task its pages and gradability tier - in one request over all
+material. A topic-level chat loads the topic's source pages as PDF
+documents.
+
+Consequences::
+Ingestion is one request with little output, so it is cheap and
+fast, and the model sees all material at once. The tutor works on
+the originals, figures and formulas included. Every source page adds
+about 2,000 input tokens to each chat request, so chat costs depend
+on prompt caching. `topic.md` shows where the tasks are, not the
+tasks themselves. One request bounds the size of a course
+(chapter 11).
+
+[[adr-no-lecture]]
+=== 10. Lecture material is not ingested
+
+Status:: accepted
+
+Context::
+The lecture is usually the largest part of a course's material.
+Sending it to the model as PDF documents costs input tokens for every
+page, a large share of the ingestion's cost limit (chapter 10).
+What an exam asks for and how its solutions are written down is
+carried by the past exams and the exercises.
+
+Decision::
+v0 ingests past exams and exercises only. Lecture material is not
+uploaded and not read. The tutor explains definitions, formulas, and
+notation the exams and exercises do not contain in its own words.
+
+Consequences::
+Ingestion costs scale with the exams and exercises, not with the
+lecture. The tutor teaches definitions, formulas, and notation from
+its own knowledge, which can differ from the lecture's (chapter 11).
+Bringing the lecture in needs a way to access it selectively, such as
+retrieval (chapter 1, out of scope).
+
+[[adr-ingestion-passes]]
+=== 9. Ingestion builds the topics in passes over the PDFs
+
+Status:: superseded by 11
+
+Context::
 Past exams define the topics. To tutor a topic, the tutor needs its
-task types, difficulty, solution approaches, a few original tasks,
-and what the lecture says about it - not the full text of the
-material. Converting all material to Markdown costs output tokens for
+task types, difficulty, solution approaches, and a few original
+tasks - not the full text of the material. Converting all material to Markdown costs output tokens for
 every page, and assigning the converted text to topics needs an
 addressing scheme for its parts. Most of it is never used in
 tutoring.
 
 Decision::
 Nothing is converted as a whole. Ingestion reads the PDFs directly
-in passes - exams, then exercises, then lecture - each with the
-topics so far, and each pass returns only changes, which the code
-applies. Only example problems and lecture excerpts are transcribed.
+in passes - exams, then exercises - each with the topics so far,
+and each pass returns only changes, which the code applies. Only
+example problems are transcribed.
 
 Consequences::
 The large model reads the originals, figures included, and no
-conversion errors propagate. Every page reaches a model once. Exam and
-exercise passes run one after another, so ingestion takes longer.
+conversion errors propagate. Every page reaches a model once. The
+passes run one after another, so ingestion takes longer.
 Material no topic takes up is visible nowhere; the student and the
 tutor see the course only through the topics (chapter 11). The code,
 not the model, writes the files, so a pass cannot drop content it did
@@ -55,9 +107,9 @@ Status:: accepted
 
 Context::
 The cost of a request grows with its input tokens and the price of
-the model. Lecture passes and finalization read much text but do
-mechanical work. Exam passes, exercise passes, and the chat decide
-what the student learns and at which level. Ingestion
+the model. Finalization reads a whole chat transcript but does
+mechanical work. Topic extraction and the chat decide what the
+student learns and at which level. Ingestion
 and tutoring have a cost limit (chapter 10).
 
 Decision::
@@ -67,11 +119,9 @@ teaching run on a large model. The model of each tier is
 configuration.
 
 Consequences::
-The large model reads the exams and exercises once and otherwise
-sees only condensed input: the topics and one chat's context. The
-lecture, usually the largest part of the material, only reaches the
-small model. Models can be
-exchanged without code changes. The chat is the only large-model
+The large model reads the whole material once and otherwise sees one
+chat's context: a topic's source pages and the student's state. Models
+can be exchanged without code changes. The chat is the only large-model
 request type that repeats per student interaction, so its cost
 depends on prompt caching.
 
@@ -128,8 +178,9 @@ the reply. A reply can span several API requests, one per tool round.
 Status:: accepted
 
 Context::
-Ingestion reads the PDFs remotely, since the image contains no
-models. It has to read slides and exams visually - math, diagrams, tables - so
+Ingestion and the tutor read the PDFs remotely, since the image
+contains no models. They have to read exams and exercises visually -
+math, diagrams, tables - so
 the model must accept PDFs as document input and read them with
 vision. Supporting several providers means an abstraction over their
 differing document and streaming interfaces.
@@ -151,8 +202,8 @@ provider abstraction first.
 Status:: accepted
 
 Context::
-Ingestion runs for minutes and issues many parallel requests to the
-Anthropic API, paid for with the instance's key. A restart during a run
+Ingestion runs for minutes on a request to the Anthropic API, paid
+for with the instance's key. A restart during a run
 must not lose it or pay for completed work twice. The UI shows the
 progress of running jobs. Session finalization runs in the
 background as well. The deployment is a small
@@ -179,8 +230,8 @@ Status:: accepted
 
 Context::
 The backend is a pure HTTP API for the React frontend. Its load is
-I/O-bound: chat replies are streamed, and ingestion issues many long,
-parallel requests to the Anthropic API. The API contract between
+I/O-bound: chat replies are streamed, and ingestion waits minutes on
+a request to the Anthropic API. The API contract between
 frontend and backend has to be explicit.
 
 Decision::

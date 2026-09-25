@@ -67,19 +67,20 @@ include::diagrams/building-blocks-level2.puml[]
 | Course Store
 | The only access path to `data/<user>/<course>/`. Knows the storage
   layout, resolves every path within the requesting user's directory,
-  and accepts no student writes after ingestion has started.
+  cuts source pages out of the PDFs, and accepts no student writes
+  after ingestion has started.
 | The filesystem
 
 | Ingestion
-| The ingestion pipeline: exam, exercise, and lecture passes, topic
-  files, and topic list. Runs as a job in the worker; each step writes its
-  result through the Course Store before the next one starts and
-  reports itself to Courses (see <<runtime-ingestion>>).
+| The ingestion pipeline: topic extraction, topic files, and topic
+  list. Runs as a job in the worker; each step writes its result
+  through the Course Store before the next one starts and reports
+  itself to Courses (see <<runtime-ingestion>>).
 | -
 
 | Tutor
 | Course-level and topic-level chats: assembles each chat's context
-  from the Course Store, streams replies as Server-Sent Events,
+  from the Course Store, a topic's source pages included, streams replies as Server-Sent Events,
   executes the chat tools, and finalizes
   topic-level chats by updating their `progress.md`.
 | -
@@ -94,6 +95,5 @@ include::diagrams/building-blocks-level2.puml[]
 ==== Prompts
 
 Every prompt is a Markdown file in the backend source tree, one per
-task (exam pass, exercise pass, lecture pass, tutoring, finalization,
-...). The AI Client loads them by name; other modules never build
+task (topic extraction, tutoring, finalization, ...). The AI Client loads them by name; other modules never build
 prompt text inline.

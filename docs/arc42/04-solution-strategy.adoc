@@ -21,8 +21,8 @@
 
 | AI
 | Anthropic Messages API, called directly (see <<adr-anthropic>>).
-  Ingestion sends the PDFs as documents and uses Claude's vision
-  capability.
+  Ingestion and topic-level chats send PDF pages as documents and use
+  Claude's vision capability.
 
 | Content storage
 | Filesystem. Uploaded PDFs, all derived Markdown artifacts, and
@@ -36,8 +36,8 @@
   process from the application image (see <<adr-postgres-job-queue>>).
 
 | Retrieval
-| None. Structured topic tagging replaces retrieval; there is no
-  vector store and no embedding pipeline.
+| None. Every topic records its source pages, and a topic-level chat
+  loads them; there is no vector store and no embedding pipeline.
 |===
 
 === Principles
@@ -45,13 +45,13 @@
 . *Markdown as the data layer.* All derived content lives in
   Markdown files the student can open in the UI. JSON holds only the
   topic list and intermediate pipeline results.
-. *Artifacts are self-contained.* What the tutor cannot read as text
-  does not exist for it. Every figure, diagram, and plot is
-  represented as ASCII art or a textual description.
-. *Ingest once.* Expensive PDF analysis happens once per course, and
-  tutoring sessions run on small, focused artifacts.
+. *Originals, not transcriptions.* Nothing of the material is
+  transcribed. The tutor reads the original pages, figures and
+  formulas included.
+. *Ingest once.* The whole material is analysed once per course, and
+  tutoring sessions run on the pages of one topic.
 . *Context discipline.* Sessions load only the current topic's
-  artifacts - never entire courses.
+  artifacts and source pages - never entire courses.
 . *Fail gracefully on missing materials.* The pipeline adapts to
   whatever the student can provide.
 . *Multi-tenant by design.* All data is strictly namespaced per user;
@@ -64,13 +64,14 @@
 | Quality goal | Approach
 
 | Exam readiness
-| Past exams define the topics; difficulty and working time of every
-  example problem are calibrated against them; progress per topic
-  and a cheatsheet written during the chat.
+| Past exams define the topics and their priority; the tutor works on
+  the original exam tasks and calibrates difficulty and working time
+  against them; progress per topic and a cheatsheet written during
+  the chat.
 
 | Cost efficiency
-| Ingest once, context discipline, two model tiers, prompt caching
-  in chats.
+| Ingest once in a single request, context discipline, two model
+  tiers, prompt caching of the source pages in chats.
 
 | Transparency
 | Markdown as the data layer, every file readable in the UI.
