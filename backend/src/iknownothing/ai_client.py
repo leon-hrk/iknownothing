@@ -39,6 +39,9 @@ class AIClient:
         self._course = course
         self.usage: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
+    async def close(self) -> None:
+        await self._client.close()
+
     async def request_json(self, request_type: str, messages: list[dict], schema: dict) -> Any:
         """Sends one request whose reply is JSON matching `schema`; returns the parsed reply."""
         model = self._models[TIERS[request_type]]

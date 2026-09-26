@@ -4,12 +4,14 @@ version = "0.0.0"
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=1.8",
+    "fastapi>=0.141",
     "pydantic>=2",
     "pypdf>=6",
+    "uvicorn[standard]>=0.54",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "httpx>=0.28"]
 
 [project.scripts]
 ikn-dev = "iknownothing.devcli:main"
