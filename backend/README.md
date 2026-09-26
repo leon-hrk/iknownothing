@@ -15,7 +15,7 @@ python3 -m venv .venv
 ## Dev CLI
 
 `ikn-dev` creates and ingests courses from local files and runs
-topic-level chats in the terminal, without frontend and database. It is a development tool, not part of the product.
+course-level and topic-level chats in the terminal, without frontend and database. It is a development tool, not part of the product.
 
 Configuration comes from the environment (see `../.env.example`):
 
@@ -38,13 +38,14 @@ rerun after a failure; it skips the topic extraction once its result
 exists.
 
 ```sh
+.venv/bin/ikn-dev chat alice control-theory
 .venv/bin/ikn-dev chat alice control-theory nyquist-stability
 ```
 
-`chat` opens a topic-level chat on a topic of an ingested course, by its
-slug from `topics.json`. The tutor writes `cheatsheet.md` during the
-chat. An empty line or Ctrl-D ends it and finalizes the topic's
-`progress.md`.
+`chat` opens a chat on an ingested course: course-level without a
+topic, topic-level with a topic's slug from `topics.json`. The tutor
+writes `cheatsheet.md` during the chat. An empty line or Ctrl-D ends
+it; a topic-level chat then finalizes the topic's `progress.md`.
 
 Token usage per request is logged to stderr, totals per model are
 printed at the end.

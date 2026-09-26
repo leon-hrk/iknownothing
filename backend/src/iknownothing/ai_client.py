@@ -15,6 +15,7 @@ log = logging.getLogger(__name__)
 
 TIERS = {
     "topic_extraction": "large",
+    "planning": "large",
     "tutoring": "large",
     "finalization": "small",
 }

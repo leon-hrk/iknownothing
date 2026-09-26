@@ -7,7 +7,7 @@ import pytest
 from pypdf import PdfReader, PdfWriter
 
 from iknownothing.course_store import CourseStore
-from iknownothing.tutor.chat import TutorError, context, reply
+from iknownothing.tutor.chat import TutorError, course_context, reply, topic_context
 from iknownothing.tutor.cheatsheet import CheatsheetError, parse, set_entry
 from iknownothing.tutor.finalization import finalize, render_transcript
 
@@ -57,7 +57,7 @@ def test_cheatsheet_entries():
 
 
 def test_context(store):
-    ctx = asyncio.run(context(store, "laplace", "German"))
+    ctx = asyncio.run(topic_context(store, "laplace", "German"))
     docs = [b for b in ctx if b["type"] == "document"]
     assert [d["title"] for d in docs] == ["exams/2023.pdf, pages 1-2, 4-5", "exercises/uebung1.pdf, pages 2"]
     assert "cache_control" in docs[-1] and "cache_control" not in docs[0]
@@ -74,10 +74,14 @@ class FakeAI:
 
     def __init__(self, stop_reason="end_turn"):
         self.requests = []
+        self.request_types = []
+        self.tools = []
         self.stop_reason = stop_reason
 
     async def stream_chat(self, request_type, messages, tools):
         self.requests.append(messages)
+        self.request_types.append(request_type)
+        self.tools.append(tools)
         if len(self.requests) == 1:
             content = [
                 block("tool_use", id="t1", name="update_cheatsheet",
@@ -95,9 +99,9 @@ class FakeAI:
         return "# Progress\n"
 
 
-def run_reply(store, ai, transcript):
+def run_reply(store, ai, transcript, slug="laplace"):
     async def collect():
-        return [e async for e in reply(store, ai, "laplace", "German", transcript)]
+        return [e async for e in reply(store, ai, slug, "German", transcript)]
     return asyncio.run(collect())
 
 
@@ -137,3 +141,17 @@ def test_finalize(store):
     ai = FakeAI()
     asyncio.run(finalize(store, ai, "laplace", "German", []))
     assert ai.requests == []
+
+
+def test_course_chat(store):
+    store.write_text("topics/laplace/progress.md", "# Progress\ncan transform")
+    ctx = course_context(store, "German")
+    assert len(ctx) == 1 and "cache_control" in ctx[0]
+    assert '<topic name="Laplace" priority="high">' in ctx[0]["text"]
+    assert "- Klausur 2023, Aufgabe 3 (Tier B)" in ctx[0]["text"] and "can transform" in ctx[0]["text"]
+
+    ai = FakeAI()
+    transcript = [{"role": "user", "content": "what next?"}]
+    run_reply(store, ai, transcript, slug=None)
+    assert ai.request_types == ["planning", "planning"]
+    assert [t["name"] for t in ai.tools[0]] == ["update_cheatsheet"]

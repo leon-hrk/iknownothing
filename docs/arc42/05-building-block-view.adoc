@@ -95,5 +95,5 @@ include::diagrams/building-blocks-level2.puml[]
 ==== Prompts
 
 Every prompt is a Markdown file in the backend source tree, one per
-task (topic extraction, tutoring, finalization, ...). The AI Client loads them by name; other modules never build
+task (topic extraction, planning, tutoring, finalization). The AI Client loads them by name; other modules never build
 prompt text inline.

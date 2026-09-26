@@ -1,4 +1,4 @@
-"""Topic-level chat: context assembly, chat tools, and the reply loop."""
+"""Course-level and topic-level chats: context assembly, chat tools, and the reply loop."""
 
 import asyncio
 import base64
@@ -14,7 +14,7 @@ from iknownothing.tutor.cheatsheet import CheatsheetError, set_entry
 
 MAX_TOOL_ROUNDS = 8
 
-TOOLS = [
+TOPIC_TOOLS = [
     {
         "name": "update_cheatsheet",
         "description": (
@@ -55,6 +55,7 @@ TOOLS = [
         },
     },
 ]
+COURSE_TOOLS = TOPIC_TOOLS[:1]
 
 _POSED = {
     "A": "Posed as Tier A. Grade the student's answer.",
@@ -110,11 +111,11 @@ async def source_documents(store: CourseStore, topic: dict) -> list[dict]:
     return documents
 
 
-def _optional(store: CourseStore, rel: str) -> str:
-    return store.read_text(rel) if store.exists(rel) else "(empty)"
+def _optional(store: CourseStore, rel: str, missing: str = "(empty)") -> str:
+    return store.read_text(rel) if store.exists(rel) else missing
 
 
-async def context(store: CourseStore, slug: str, language: str) -> list[dict]:
+async def topic_context(store: CourseStore, slug: str, language: str) -> list[dict]:
     """The context of a topic-level chat: source pages first, marked for caching, then the course files."""
     topic = topic_entry(store, slug)
     documents = await source_documents(store, topic)
@@ -127,6 +128,25 @@ async def context(store: CourseStore, slug: str, language: str) -> list[dict]:
         f"<progress>\n{_optional(store, f'{topic['dir']}/progress.md')}\n</progress>"
     )
     return [*documents, {"type": "text", "text": text}]
+
+
+def course_context(store: CourseStore, language: str) -> list[dict]:
+    """The context of a course-level chat: every topic with its priority, tasks, and progress, then the course files."""
+    topics = []
+    for t in store.read_json("topics.json"):
+        tasks = "\n".join(f"- {s['task']} (Tier {s['tier']})" for s in t["sources"])
+        progress = _optional(store, f"{t['dir']}/progress.md", "(no session yet)")
+        topics.append(
+            f'<topic name="{t["name"]}" priority="{t["priority"]}">\n'
+            f"<tasks>\n{tasks}\n</tasks>\n<progress>\n{progress}\n</progress>\n</topic>"
+        )
+    text = (
+        f"<language>{language}</language>\n\n"
+        f"<topics>\n{chr(10).join(topics)}\n</topics>\n\n"
+        f"<notes>\n{store.read_text('notes.md')}\n</notes>\n\n"
+        f"<cheatsheet>\n{_optional(store, 'cheatsheet.md')}\n</cheatsheet>"
+    )
+    return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
 
 
 def _with_context(ctx: list[dict], transcript: list[dict]) -> list[dict]:
@@ -155,19 +175,24 @@ async def _execute(store: CourseStore, block: Any) -> tuple[dict, tuple[str, Any
 
 
 async def reply(
-    store: CourseStore, ai: AIClient, slug: str, language: str, transcript: list[dict],
+    store: CourseStore, ai: AIClient, slug: str | None, language: str, transcript: list[dict],
 ) -> AsyncIterator[tuple[str, Any]]:
     """Streams the tutor's reply to a transcript that ends with the student's message.
+
+    `slug` names the topic of a topic-level chat; `None` makes it a course-level chat.
 
     Yields `("text", chunk)`, `("cheatsheet", entry)`, and `("task", task)`, and appends the reply,
     tool calls and results included, to `transcript`. On failure the transcript is left as it was.
     """
     start = len(transcript)
-    ctx = await context(store, slug, language)
+    if slug is None:
+        request_type, tools, ctx = "planning", COURSE_TOOLS, course_context(store, language)
+    else:
+        request_type, tools, ctx = "tutoring", TOPIC_TOOLS, await topic_context(store, slug, language)
     try:
         for _ in range(MAX_TOOL_ROUNDS):
             msg = None
-            async for kind, value in ai.stream_chat("tutoring", _with_context(ctx, transcript), TOOLS):
+            async for kind, value in ai.stream_chat(request_type, _with_context(ctx, transcript), tools):
                 if kind == "text":
                     yield "text", value
                 else:

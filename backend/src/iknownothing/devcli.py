@@ -62,19 +62,19 @@ def run_chat(settings: Settings, args: argparse.Namespace) -> None:
     if not store.exists("topics.json"):
         sys.exit("course is not ingested")
     try:
-        topic = topic_entry(store, args.topic)
+        name = topic_entry(store, args.topic)["name"] if args.topic else args.course
     except TutorError as e:
         sys.exit(str(e))
     language = store.read_json(RESULT)["language"]
     ai = AIClient(settings, args.user, args.course)
-    print(f"{topic['name']} - empty line or Ctrl-D ends the chat\n")
+    print(f"{name} - empty line or Ctrl-D ends the chat\n")
     try:
         asyncio.run(chat(store, ai, args.topic, language))
     finally:
         print_usage(ai)
 
 
-async def chat(store: CourseStore, ai: AIClient, slug: str, language: str) -> None:
+async def chat(store: CourseStore, ai: AIClient, slug: str | None, language: str) -> None:
     transcript: list[dict] = []
     while True:
         try:
@@ -96,7 +96,7 @@ async def chat(store: CourseStore, ai: AIClient, slug: str, language: str) -> No
             transcript.pop()
             print(f"\n[error: {e}]")
         print("\n")
-    if transcript:
+    if slug and transcript:
         print("finalizing ...", flush=True)
         await finalize(store, ai, slug, language, transcript)
         print(f"updated {store.root / 'topics' / slug / 'progress.md'}")
@@ -120,10 +120,11 @@ def main() -> None:
     p.add_argument("course")
     p.set_defaults(func=run_ingest)
 
-    p = sub.add_parser("chat", help="topic-level chat in the terminal; finalizes the topic's progress at the end")
+    p = sub.add_parser("chat", help="course-level or topic-level chat in the terminal; "
+                                    "a topic-level chat finalizes the topic's progress at the end")
     p.add_argument("user")
     p.add_argument("course")
-    p.add_argument("topic", help="topic slug, as in topics.json")
+    p.add_argument("topic", nargs="?", help="topic slug, as in topics.json; without it the chat is course-level")
     p.set_defaults(func=run_chat)
 
     args = parser.parse_args()

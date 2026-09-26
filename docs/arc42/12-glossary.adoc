@@ -22,8 +22,8 @@
 
 | Course-level chat
 | A session scoped to the whole course, for orientation and planning.
-  Loads the notes, the progress of every topic, the topic priorities,
-  and the cheatsheet, never a topic artifact.
+  Loads the notes, the progress of every topic, the topic priorities
+  and tasks, and the cheatsheet, never a topic artifact.
 
 | Chat tool
 | An action the tutor takes during a chat through a tool call:
@@ -114,7 +114,7 @@
 | Topic list
 | `topics.json`: the topics in priority order, each with its priority,
   topic directory, and sources. Orders the topic tree, gives the
-  course-level chat the priorities, and a topic-level chat its source
+  course-level chat the priorities and tasks, and a topic-level chat its source
   pages.
 
 | Topic source

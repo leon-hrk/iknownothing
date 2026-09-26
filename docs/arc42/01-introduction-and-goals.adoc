@@ -78,7 +78,7 @@ The course language is detected here.
 . *Topic list*: `topics.json` - the topics in priority order, each
   with its priority, its topic directory, and its sources. The UI
   orders the topic tree by it; the course-level chat takes the
-  priorities from it; a topic-level chat takes the source pages from
+  priorities and tasks from it; a topic-level chat takes the source pages from
   it.
 
 Source priority for what a topic is: *past exams > exercises*. For
@@ -150,9 +150,9 @@ Sessions come in two scopes.
 *Course-level chat* - orientation and planning. This is the default
 entry point: the student opens a course and asks "which topics do I
 still need to learn?". Context is `notes.md`, the progress of every
-topic, the topic priorities from `topics.json`, and `cheatsheet.md` -
-never a full topic artifact or source pages. It answers where the student stands and what
-to work on next; to work on a topic, the student opens it.
+topic, the topic priorities and tasks from `topics.json`, and
+`cheatsheet.md` - never a full topic artifact or source pages. It
+answers where the student stands and what to work on next; to work on a topic, the student opens it.
 
 *Topic-level chat* - the actual tutoring, opened by clicking a topic.
 

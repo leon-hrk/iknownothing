@@ -149,7 +149,8 @@ Every request type runs on one of two model tiers (see
 
 | Finalization | small
 | Topic extraction | large
-| Chat, including grading | large
+| Tutoring (topic-level chat), including grading | large
+| Planning (course-level chat) | large
 |===
 
 Topic extraction asks for its reply in a JSON schema. A request the
