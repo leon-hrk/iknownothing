@@ -1,10 +1,13 @@
 """The only access path to data/<user>/<course>/."""
 
+import asyncio
 import io
 import json
 import os
 import re
 import tempfile
+from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +16,8 @@ from pypdf import PdfReader, PdfWriter
 DOC_TYPES = ("exams", "exercises")
 
 _NAME = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+
+_file_locks: defaultdict[Path, asyncio.Lock] = defaultdict(asyncio.Lock)
 
 
 class CourseStoreError(Exception):
@@ -64,6 +69,15 @@ class CourseStore:
 
     def write_json(self, rel: str, data: Any) -> None:
         self.write_text(rel, json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+
+    async def update_text(self, rel: str, change: Callable[[str], str]) -> str:
+        """Applies `change` to the file's text (empty if missing) and writes the result; serialized per file."""
+        target = self.path(rel)
+        async with _file_locks[target]:
+            old = target.read_text(encoding="utf-8") if target.exists() else ""
+            new = change(old)
+            await asyncio.to_thread(self.write_text, rel, new)
+            return new
 
     def sources(self, doc_type: str) -> list[str]:
         """Source PDFs of one document type, in file name order."""

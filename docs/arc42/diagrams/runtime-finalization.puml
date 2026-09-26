@@ -13,8 +13,8 @@ frontend -> tutor : POST transcript\n(another chat opened or tab closed)
 tutor -> db : enqueue finalization
 
 db -> worker : job with transcript
-worker -> store : read progress.md
-worker -> ai : transcript, progress
+worker -> store : read topic.md, progress.md
+worker -> ai : transcript, topic, progress
 ai --> worker : updated progress
 worker -> store : write progress.md
 @enduml

@@ -1,7 +1,7 @@
 # Backend
 
-Python package `iknownothing`: Course Store, AI Client, and Ingestion
-(see [arc42 chapter 5](../docs/arc42/05-building-block-view.adoc)).
+Python package `iknownothing`: Course Store, AI Client, Ingestion, and
+Tutor (see [arc42 chapter 5](../docs/arc42/05-building-block-view.adoc)).
 
 ## Setup
 
@@ -14,8 +14,8 @@ python3 -m venv .venv
 
 ## Dev CLI
 
-`ikn-dev` creates and ingests courses from local files, without frontend
-and database. It is a development tool, not part of the product.
+`ikn-dev` creates and ingests courses from local files and runs
+topic-level chats in the terminal, without frontend and database. It is a development tool, not part of the product.
 
 Configuration comes from the environment (see `../.env.example`):
 
@@ -36,5 +36,15 @@ export IKN_DATA_DIR="$PWD/../data"
 The course lands in `$IKN_DATA_DIR/<user>/<course>/`. `ingest` can be
 rerun after a failure; it skips the topic extraction once its result
 exists.
+
+```sh
+.venv/bin/ikn-dev chat alice control-theory nyquist-stability
+```
+
+`chat` opens a topic-level chat on a topic of an ingested course, by its
+slug from `topics.json`. The tutor writes `cheatsheet.md` during the
+chat. An empty line or Ctrl-D ends it and finalizes the topic's
+`progress.md`.
+
 Token usage per request is logged to stderr, totals per model are
 printed at the end.

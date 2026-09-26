@@ -3,6 +3,7 @@
 import json
 import logging
 from collections import defaultdict
+from collections.abc import AsyncIterator
 from importlib import resources
 from typing import Any
 
@@ -14,6 +15,8 @@ log = logging.getLogger(__name__)
 
 TIERS = {
     "topic_extraction": "large",
+    "tutoring": "large",
+    "finalization": "small",
 }
 
 _FALLBACK_BETA = "server-side-fallback-2026-07-01"
@@ -63,6 +66,43 @@ class AIClient:
         last_fallback = max((i for i, b in enumerate(blocks) if b.type == "fallback"), default=-1)
         text = "".join(b.text for b in blocks[last_fallback + 1 :] if b.type == "text")
         return json.loads(text)
+
+    async def stream_chat(
+        self, request_type: str, messages: list[dict], tools: list[dict],
+    ) -> AsyncIterator[tuple[str, Any]]:
+        """Streams one chat request: yields `("text", chunk)` while the reply arrives, then `("message", msg)`."""
+        async with self._client.messages.stream(
+            model=self._models[TIERS[request_type]],
+            max_tokens=32000,
+            system=load_prompt(request_type),
+            messages=messages,
+            tools=tools,
+            thinking={"type": "adaptive"},
+            cache_control={"type": "ephemeral"},
+        ) as stream:
+            async for event in stream:
+                if event.type == "text":
+                    yield "text", event.text
+            msg = await stream.get_final_message()
+        self._record_usage(request_type, msg)
+        yield "message", msg
+
+    async def request_text(self, request_type: str, messages: list[dict]) -> str:
+        """Sends one request and returns its text reply."""
+        async with self._client.messages.stream(
+            model=self._models[TIERS[request_type]],
+            max_tokens=32000,
+            system=load_prompt(request_type),
+            messages=messages,
+            thinking={"type": "adaptive"},
+        ) as stream:
+            msg = await stream.get_final_message()
+        self._record_usage(request_type, msg)
+        if msg.stop_reason == "refusal":
+            raise AIError(f"{request_type}: request refused by {msg.model}")
+        if msg.stop_reason == "max_tokens":
+            raise AIError(f"{request_type}: reply exceeded max_tokens")
+        return "".join(b.text for b in msg.content if b.type == "text")
 
     def _record_usage(self, request_type: str, msg: Any) -> None:
         u = msg.usage

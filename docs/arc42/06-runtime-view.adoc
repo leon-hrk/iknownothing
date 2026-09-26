@@ -89,9 +89,9 @@ written in them.
 . A topic-level chat ends when the student opens another chat and
   confirms the warning, or closes the tab. The frontend posts its transcript - on tab close as
   a `keepalive` request - and Tutor enqueues its finalization.
-. The worker sends one request with the transcript and the topic's
-  current `progress.md` and receives the updated progress, with
-  assessed and self-reported signals kept apart.
+. The worker sends one request with the transcript, the topic's
+  `topic.md`, and its current `progress.md`, and receives the updated
+  progress, with assessed and self-reported signals kept apart.
 . The worker writes `progress.md` through the Course Store.
 
 Finalization jobs of one course run one at a time, so two sessions on the same topic never write its

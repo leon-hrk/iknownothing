@@ -68,8 +68,9 @@ read-only in the UI; uploaded PDFs are not shown.
 course:
 
 * The Course Store serializes writes per file.
-* The tutor changes one entry - a heading and its body - in the
-  current file, never the whole file.
+* The cheatsheet is grouped in sections, one per topic (`##`), each
+  holding entries (`###`). The tutor changes one entry - a heading and
+  its body - in the current file, never the whole file.
 * An open cheatsheet view reloads when the tutor changes it.
 
 === Topic Extraction
@@ -183,7 +184,8 @@ reaches outside the requesting user's course.
 
 | `update_cheatsheet`
 | All chats
-| Adds, changes, or removes one entry of `cheatsheet.md`.
+| Adds, changes, or removes one entry in a section of
+  `cheatsheet.md`.
 
 | `pose_task`
 | Topic-level
