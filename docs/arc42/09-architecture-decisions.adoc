@@ -19,6 +19,54 @@
 // Consequences::
 // What this costs us and what it rules out.
 
+[[adr-no-login]]
+=== 13. Users choose themselves without login
+
+Status:: accepted
+
+Context::
+v0 is a feasibility study: a small group on one host, whose courses
+the operator hands out. Login needs password hashes, sessions, a
+session secret, and a user store.
+
+Decision::
+A user is a directory `data/<user>/`, created by the operator. The UI
+lists the users, and the student picks themselves; the choice is kept
+in a cookie. There are no passwords and no database.
+
+Consequences::
+No database service and no secret besides the API key. The
+application authenticates no one (chapter 11): it must stay on
+`localhost` or behind a reverse proxy that authenticates. Login
+(chapter 1, out of scope) brings back password hashes and a user
+store.
+
+[[adr-operator-ingestion]]
+=== 12. The operator ingests courses; finalization runs in the backend
+
+Status:: accepted
+
+Context::
+v0 is a feasibility study for a small group. The operator provides
+the course material, so ingestion is started by the operator, not
+from the UI, and no one watches its progress in the browser. The only
+work left to run outside a request is the finalization of a
+topic-level chat, a single request of seconds.
+
+Decision::
+The operator ingests a course with a command of the application
+image, which runs the pipeline in its own process. Finalization runs
+as a background task of the backend process after the response to
+the finalization request.
+
+Consequences::
+There is no worker service and no job queue to deploy. An ingestion blocks the operator's terminal
+for its duration; a failed one is resumed with a second command and
+skips the steps whose results already exist. A finalization that is
+running when the backend stops is lost. Upload by students (chapter
+1, out of scope) needs ingestion in the background and brings back a
+job queue.
+
 [[adr-source-pages]]
 === 11. Topics reference their source pages instead of transcribing them
 
@@ -62,7 +110,7 @@ carried by the past exams and the exercises.
 
 Decision::
 v0 ingests past exams and exercises only. Lecture material is not
-uploaded and not read. The tutor explains definitions, formulas, and
+part of a course and not read. The tutor explains definitions, formulas, and
 notation the exams and exercises do not contain in its own words.
 
 Consequences::
@@ -126,7 +174,7 @@ request type that repeats per student interaction, so its cost
 depends on prompt caching.
 
 [[adr-operator-key]]
-=== 7. The operator provides the API key and the accounts
+=== 7. The operator provides the API key and the users
 
 Status:: accepted
 
@@ -139,7 +187,7 @@ users.
 
 Decision::
 The operator provides one Anthropic API key for the instance as
-configuration and creates all accounts from the command line. Users
+configuration and creates all users from the command line. Users
 have no account settings.
 
 Consequences::
@@ -200,7 +248,7 @@ provider abstraction first.
 [[adr-postgres-job-queue]]
 === 4. Background jobs run on a PostgreSQL-backed queue
 
-Status:: accepted
+Status:: superseded by 12
 
 Context::
 Ingestion runs for minutes on a request to the Anthropic API, paid

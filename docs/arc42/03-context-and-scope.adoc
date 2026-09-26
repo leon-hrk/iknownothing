@@ -4,9 +4,8 @@
 // crosses the boundary. Business context first, technical context
 // only where the protocol or channel matters.
 
-The system is one self-hosted instance. Its database and file storage
-are part of it and deployed with it; they are not communication
-partners.
+The system is one self-hosted instance. Its file storage is part of
+it and deployed with it; it is not a communication partner.
 
 === Business Context
 
@@ -20,14 +19,14 @@ include::diagrams/business-context.puml[]
 | Partner | Input to the system | Output from the system
 
 | Student
-| Login, course PDFs, `notes.md`, chat messages and answers,
-  self-ratings for Tier B tasks
+| Choice of user, chat messages and answers, self-ratings for Tier B
+  tasks
 | Tutoring and grading in chat, all Markdown files of the course
   for reading
 
 | Operator
 | Deployment, instance configuration including the Anthropic API
-  key, user accounts
+  key, users, course PDFs and `notes.md` for each student
 | A running instance
 
 | Anthropic API
@@ -50,12 +49,13 @@ Anthropic API.
 | Browser, HTTP
 | Web UI over a JSON HTTP API. A chat message is a `POST` carrying
   the chat's transcript, whose response streams the reply and its tool events as Server-Sent
-  Events. Ingestion progress is polled from the course status.
+  Events.
 
 | Operator
 | Docker host
-| docker-compose, `.env`, and the account commands of the
-  application image (chapter 8).
+| docker-compose, `.env`, and the user and course commands of
+  the application image (chapter 8). Course material is read from the
+  directory `courses/` next to the compose file.
 
 | Anthropic API
 | HTTPS

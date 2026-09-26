@@ -8,9 +8,9 @@ actor "Operator" as operator
 rectangle "**iknownothing**" as system
 cloud "Anthropic API" as ai
 
-student --> system : course material,\nnotes, chat
+student --> system : chat
 system --> student : tutoring, grading,\nMarkdown files
-operator --> system : deployment, configuration,\nAPI key, accounts
+operator --> system : deployment, configuration,\nAPI key, users,\ncourse material, notes
 system --> ai : documents, prompts\n(instance API key)
 ai --> system : topics,\nreplies
 @enduml

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { type Course, type CourseSummary, finalize, getCourse, listCourses, type Message, readFile } from "./api";
+import {
+  chooseUser, type Course, type CourseSummary, currentUser, finalize, getCourse, listCourses, listUsers, type Message,
+  readFile, UNAUTHORIZED,
+} from "./api";
 import Chat, { type OpenChat } from "./Chat";
 import Markdown from "./Markdown";
 
@@ -33,6 +36,21 @@ function Reader({ reading, version, onBack }: { reading: Reading; version: numbe
 }
 
 export default function App() {
+  const [users, setUsers] = useState<string[] | null>(null);
+  const [user, setUser] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([listUsers(), currentUser()]).then(([u, c]) => { setUsers(u); setUser(c); });
+    const onUnauthorized = () => setUser(null);
+    window.addEventListener(UNAUTHORIZED, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED, onUnauthorized);
+  }, []);
+
+  if (users === null) return null;
+  return <Workspace key={user ?? ""} user={user} users={users} onSwitch={setUser} />;
+}
+
+function Workspace({ user, users, onSwitch }: { user: string | null; users: string[]; onSwitch: (name: string) => void }) {
   const [courses, setCourses] = useState<CourseSummary[]>([]);
   const [details, setDetails] = useState<Record<string, Course>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -43,7 +61,7 @@ export default function App() {
   const chatRef = useRef(chat);
   chatRef.current = chat;
 
-  useEffect(() => { listCourses().then(setCourses); }, []);
+  useEffect(() => { if (user) listCourses().then(setCourses); }, [user]);
 
   useEffect(() => {
     const onHide = () => endChat(chatRef.current, true);
@@ -61,6 +79,13 @@ export default function App() {
       if (!next.delete(key)) next.add(key);
       return next;
     });
+  }
+
+  async function switchUser(name: string) {
+    if (chat?.transcript.length && !window.confirm(WARNING)) return;
+    endChat(chat);
+    await chooseUser(name);
+    onSwitch(name);
   }
 
   function openChat(course: string, topic: string | null, title: string) {
@@ -135,6 +160,10 @@ export default function App() {
             );
           })}
         </ul>
+        <select className="account" value={user ?? ""} onChange={(e) => switchUser(e.target.value)}>
+          {!user && <option value="" disabled>Choose a user</option>}
+          {users.map((u) => <option key={u} value={u}>{u}</option>)}
+        </select>
       </nav>
       <main>
         <header>
@@ -158,7 +187,7 @@ export default function App() {
             />
           </div>
         )}
-        {!chat && !reading && <p className="hint">Open a course to start.</p>}
+        {!chat && !reading && <p className="hint">{user ? "Open a course to start." : "Choose a user at the bottom left."}</p>}
       </main>
     </div>
   );

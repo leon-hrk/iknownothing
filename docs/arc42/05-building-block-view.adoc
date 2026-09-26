@@ -15,33 +15,27 @@ include::diagrams/building-blocks-level1.puml[]
 | Building block | Responsibility
 
 | Frontend
-| React single-page application in the browser: course tree, chat,
-  Markdown viewer. Talks to the backend over the HTTP API
+| React single-page application in the browser: user choice, course
+  tree, chat, Markdown viewer. Talks to the backend over the HTTP API
   only.
 
 | Backend
 | FastAPI application serving the HTTP API. Handles requests, streams
-  chat replies as Server-Sent Events, and enqueues background jobs.
-
-| Worker
-| Executes background jobs: ingestion and session finalization.
-  Built from the same code and image as the
-  backend (see <<adr-postgres-job-queue>>).
-
-| PostgreSQL
-| Users, course metadata, and the job queue.
+  chat replies as Server-Sent Events, and finalizes topic-level chats
+  in the background. Its image also holds the operator's user and
+  course commands (see <<adr-operator-ingestion>>).
 
 | Filesystem
-| Course content under `data/<user>/`, laid out as described in
+| Users and their course content under `data/<user>/`, laid out as described in
   <<_persistence,Persistence>>.
 |===
 
 The frontend is not decomposed further.
 
-=== Level 2: Backend and Worker
+=== Level 2: Backend
 
-Backend and worker share one set of modules; which process a module
-runs in depends on whether the work is a request or a job.
+The HTTP API and the operator's commands share one set of modules;
+Ingestion runs only in a command.
 
 [plantuml, target=building-blocks-level2, format=svg]
 ....
@@ -53,36 +47,38 @@ include::diagrams/building-blocks-level2.puml[]
 | Module | Responsibility | Owns
 
 | Accounts
-| Login and sessions, and the account commands the operator runs
-  from the command line (chapter 8).
-| Users and password hashes in PostgreSQL
+| The list of users, the user a request is served for (chapter 8),
+  and the user commands the operator runs from the command line.
+| The user directories `data/<user>/`
 
 | Courses
-| Creating a course, uploading PDFs by document type and `notes.md`, and
-  reading course files through the Course Store. Starts ingestion on
-  the student's request and holds the course status: ingesting with
-  the current step, failed with the reason, or ready.
-| Course metadata in PostgreSQL
+| Listing a user's courses with their status - ready or not
+  ingested, read from the files - and reading course files through
+  the Course Store. The operator's course commands: adding a course
+  for a user from a directory of PDFs and `notes.md` and ingesting it,
+  copying an ingested course from another user, resuming a failed
+  ingestion, and removing a course.
+| -
 
 | Course Store
 | The only access path to `data/<user>/<course>/`. Knows the storage
   layout, resolves every path within the requesting user's directory,
-  cuts source pages out of the PDFs, and accepts no student writes
-  after ingestion has started.
+  and cuts source pages out of the PDFs.
 | The filesystem
 
 | Ingestion
 | The ingestion pipeline: topic extraction, topic files, and topic
-  list. Runs as a job in the worker; each step writes its result
-  through the Course Store before the next one starts and reports
-  itself to Courses (see <<runtime-ingestion>>).
+  list. Runs in the operator's command; each step writes its result
+  through the Course Store before the next one starts and is printed
+  as it starts (see <<runtime-ingestion>>).
 | -
 
 | Tutor
 | Course-level and topic-level chats: assembles each chat's context
   from the Course Store, a topic's source pages included, streams replies as Server-Sent Events,
   executes the chat tools, and finalizes
-  topic-level chats by updating their `progress.md`.
+  topic-level chats by updating their `progress.md`, in a background
+  task after the response.
 | -
 
 | AI Client

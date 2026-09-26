@@ -4,17 +4,16 @@ skinparam defaultTextAlignment center
 
 participant "Frontend" as frontend
 participant "Tutor\n(Backend)" as tutor
-database "PostgreSQL" as db
-participant "Tutor\n(Worker)" as worker
 participant "Course Store" as store
 participant "AI Client" as ai
 
 frontend -> tutor : POST transcript\n(another chat opened or tab closed)
-tutor -> db : enqueue finalization
+tutor --> frontend : 202 Accepted
 
-db -> worker : job with transcript
-worker -> store : read topic.md, progress.md
-worker -> ai : transcript, topic, progress
-ai --> worker : updated progress
-worker -> store : write progress.md
+group background task
+  tutor -> store : read topic.md, progress.md
+  tutor -> ai : transcript, topic, progress
+  ai --> tutor : updated progress
+  tutor -> store : write progress.md
+end
 @enduml

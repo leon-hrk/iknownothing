@@ -1,0 +1,23 @@
+# Development: backend reloads on source changes, Vite serves the frontend on :5173.
+# Enabled with COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml in .env.
+services:
+  backend:
+    build:
+      target: dev
+    volumes:
+      - ./backend/src:/app/src:ro
+      - ./backend/tests:/app/tests:ro
+
+  frontend:
+    image: node:24-slim
+    working_dir: /frontend
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    environment:
+      IKN_API: http://backend:8000
+    ports:
+      - "127.0.0.1:${IKN_DEV_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/frontend
+      - /frontend/node_modules
+    depends_on:
+      - backend

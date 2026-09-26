@@ -3,22 +3,18 @@ skinparam shadowing false
 skinparam defaultTextAlignment center
 
 actor "Student" as student
+actor "Operator" as operator
 cloud "Anthropic API" as ai
 
 rectangle "**iknownothing**" {
   component "Frontend\n(React SPA)" as frontend
   component "Backend\n(FastAPI)" as backend
-  component "Worker\n(procrastinate)" as worker
-  database "PostgreSQL" as db
   folder "Filesystem\ndata/<user>/" as fs
 }
 
 student --> frontend : HTTPS
+operator --> backend : commands
 frontend --> backend : HTTP API
-backend --> db
 backend --> fs
 backend --> ai
-worker --> db
-worker --> fs
-worker --> ai
 @enduml

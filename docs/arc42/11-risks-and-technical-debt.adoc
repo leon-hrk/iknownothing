@@ -10,6 +10,14 @@
 |===
 | Risk | Impact | Mitigation
 
+| No authentication
+| Users choose themselves without login (<<adr-no-login>>). Anyone
+  who reaches the application can use and read every user's courses
+  and spend the API key.
+| `backend` is bound to `localhost`. For network access, a reverse
+  proxy that authenticates every request (chapter 7). Login
+  (chapter 1, out of scope) removes the risk.
+
 | Course size bounded by one request
 | Topic extraction sends all material in one request, limited to 600
   pages and 32 MB. A larger course fails ingestion.
@@ -41,14 +49,15 @@
 | All users run on one API key. Parallel ingestions exhaust its rate
   limit and slow down every chat; one user's heavy use spends the
   budget of all.
-| The worker concurrency limits parallel jobs; a spend limit on the
-  key caps the cost. Per-user keys (chapter 1, out of scope) remove
+| Ingestions are started by the operator, one per command; a spend
+  limit on the key caps the cost. Per-user keys (chapter 1, out of scope) remove
   the risk.
 
-| Finalization lost on tab close
+| Finalization lost on tab close or restart
 | On tab close the transcript is sent as a `keepalive` request, which
   browsers cap at 64 KiB and may drop. A long chat or a killed
-  browser loses its progress update.
+  browser loses its progress update, and so does a finalization
+  running when the backend stops (<<adr-operator-ingestion>>).
 | Accepted for v0. The cheatsheet is unaffected; it is updated during
   the chat.
 |===

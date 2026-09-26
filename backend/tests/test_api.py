@@ -17,8 +17,9 @@ class ClosableFakeAI(FakeAI):
 @pytest.fixture
 def client(store, tmp_path, monkeypatch):  # noqa: F811
     store.write_json("ingestion/topics.json", {"language": "German"})
-    monkeypatch.setattr(api, "settings", Settings(tmp_path, "m", "m", "alice"))
+    monkeypatch.setattr(api, "settings", Settings(tmp_path, "m", "m"))
     monkeypatch.setattr(api, "AIClient", lambda *a: ClosableFakeAI())
+    monkeypatch.setitem(api.app.dependency_overrides, api.current_user, lambda: "alice")
     return TestClient(api.app)
 
 

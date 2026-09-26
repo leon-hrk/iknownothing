@@ -6,11 +6,10 @@
 
 === Persistence
 
-Data is split across two stores by kind:
-
-* *Filesystem* - course content: uploaded PDFs and all Markdown and
-  JSON files, derived or written by the student.
-* *PostgreSQL* - users, course metadata, and the job queue.
+All data is in the filesystem: a user is a directory `data/<user>/`,
+and a course is a directory in it holding the course PDFs and all
+Markdown and JSON files, provided by the operator, derived, or
+written by the tutor. There is no database.
 
 Chats are not stored. A chat exists in the browser while it is open;
 what lasts from it is written to `progress.md` and `cheatsheet.md`.
@@ -25,8 +24,8 @@ data/<user>/<course>/
 ├── sources/
 │   ├── exercises/          exercise sheets and solutions
 │   └── exams/              past exams and solution proposals
-│       └── <file>.pdf      uploaded original
-├── notes.md                student's remarks
+│       └── <file>.pdf      original
+├── notes.md                remarks on the course
 ├── cheatsheet.md           living artifact
 ├── topics.json             topic list
 ├── ingestion/              intermediate pipeline results
@@ -36,9 +35,9 @@ data/<user>/<course>/
     └── progress.md         living artifact
 ....
 
-The subdirectory of `sources/` is the document type, chosen by the
-student on upload; it is what the pipeline's source priority is
-applied to.
+The subdirectory of `sources/` is the document type, given by the
+subdirectory the operator puts the file in (`exams/`, `exercises/`);
+it is what the pipeline's source priority is applied to.
 
 The files fall into three classes:
 
@@ -48,7 +47,7 @@ The files fall into three classes:
 
 | Input
 | `sources/*`, `notes.md`
-| Upload
+| The operator's course command
 
 | Derived
 | `topics.json`, `topic.md`, `ingestion/`
@@ -60,7 +59,7 @@ The files fall into three classes:
 |===
 
 The student edits no file. Every Markdown file is shown rendered and
-read-only in the UI; uploaded PDFs are not shown.
+read-only in the UI; the PDFs are not shown.
 
 ==== Cheatsheet Updates
 
@@ -103,31 +102,47 @@ During ingestion the topics are data, not Markdown. Ingestion renders
 
 === Security
 
-==== Accounts
+==== Users and Courses
 
-The operator manages accounts with the command line of the
-application image; the UI has no registration and no account
-settings.
+The operator manages users and courses with the command line of the
+application image; the UI has no login, no registration, no account
+settings, and no upload.
 
 ....
 docker compose exec backend iknownothing user add <name>
 docker compose exec backend iknownothing user remove <name>
-docker compose exec backend iknownothing user reset-password <name>
 ....
 
-The commands prompt for the password and store only a salted hash in
-PostgreSQL. Removing a user deletes their course metadata and their
-directory `data/<user>/`.
+Adding a user creates their directory `data/<user>/`; removing a user
+deletes it with all their courses.
 
-The frontend logs in with name and password and receives a session
-cookie (`HttpOnly`, `SameSite=Strict`), signed with the session secret.
-Every API request except login requires it and is served for the
-user it belongs to.
+....
+docker compose exec backend iknownothing course add <user> <course> [<dir>]
+docker compose exec backend iknownothing course add <user> <course> --from <other-user>
+docker compose exec backend iknownothing course ingest <user> <course>
+docker compose exec backend iknownothing course remove <user> <course>
+....
+
+* `add` copies `notes.md`, `exams/*.pdf`, and `exercises/*.pdf` from
+  `courses/<dir>/` (`<dir>` defaults to the course name) into the
+  user's course and ingests it (<<runtime-ingestion>>).
+* `add --from` copies the ingested course of the same name from
+  another user, without its student state, and makes no AI call.
+* `ingest` resumes an ingestion that failed.
+* `remove` deletes the course with the student's state.
+
+The frontend lists all users; the student picks themselves, and the
+backend sets the cookie `ikn_user` (`HttpOnly`, `SameSite=Strict`)
+with the user's name. Every API request except listing and choosing
+users requires it and is served for the user it names. Switching the
+user ends an open chat like opening another chat does. There is no
+authentication: whoever reaches the application can choose any user
+(chapter 11).
 
 ==== Secrets
 
-The Anthropic API key and the session secret stand in plain text in
-`.env` (see <<adr-operator-key>>). They are protected by:
+The Anthropic API key stands in plain text in `.env` (see
+<<adr-operator-key>>). It is protected by:
 
 * `.env` is never committed; the repository holds `.env.example` with
   placeholders.
@@ -166,10 +181,9 @@ tutoring is read from this log.
 
 === Concurrency
 
-Backend and worker are asynchronous throughout. Every call to the
-Anthropic API and every other wait on I/O is non-blocking, so one
-backend process holds many streaming chats at once, and one worker
-process runs several jobs at once.
+The backend is asynchronous throughout. Every call to the Anthropic
+API and every other wait on I/O is non-blocking, so one backend
+process holds many streaming chats and finalizations at once.
 Blocking work, such as cutting pages out of a PDF, runs off the
 event loop.
 

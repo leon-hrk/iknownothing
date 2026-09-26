@@ -11,30 +11,35 @@
 include::diagrams/runtime-ingestion.puml[]
 ....
 
-. The student creates a course and uploads PDFs, choosing the
-  document type of each, and `notes.md`. Courses stores them through
-  the Course Store under `sources/<type>/` and as `notes.md`.
-. The student starts ingestion. Courses sets the course to
-  _ingesting_ and enqueues one ingestion job. It refuses to start
-  without `notes.md`. From here on, nothing in the course can be
-  added or changed by the student.
-. The worker runs the job. Ingestion executes the steps below in
-  order. Every step writes its results through the Course Store and
-  reports itself to Courses as the current step.
+. The operator puts the course's PDFs into `courses/<dir>/exams/` and
+  `courses/<dir>/exercises/` next to the compose file, with
+  `courses/<dir>/notes.md`, and runs `course add <user> <course>
+  [<dir>]`; `<dir>` defaults to the course name. Courses refuses an
+  unknown user, an existing course, and a directory that holds
+  anything but `notes.md` and PDFs in `exams/` and `exercises/`, lacks
+  `notes.md`, or has no PDF. It copies the files through the Course Store under
+  `sources/<type>/` and as `notes.md`.
+. Courses runs Ingestion in the command's process. Ingestion executes
+  the steps below in order, prints each as it starts, and writes its
+  results through the Course Store.
 .. *Topic extraction.* One request sends all exam and exercise PDFs
    as documents together with `notes.md`
    (<<_topic_extraction,chapter 8>>) and receives the course language
    and the topics with their sources, which Ingestion checks and
-   writes to `ingestion/topics.json`. Courses stores the language in
-   the course metadata.
+   writes to `ingestion/topics.json`.
 .. *Topic files.* No AI call: `topic.md` of every topic is written
    from the topics, then `topics.json`.
-. Courses sets the course to _ready_. The frontend polls the course
-  status while ingestion runs and shows the topic tree once it is
-  ready.
+. The command prints the token usage. The course is ready: the
+  student's course list shows it as such, and it opens.
 
 Topic extraction applies the fallback strategies (chapter 1)
 according to the number of past exams in the course.
+
+`course add <user> <course> --from <other-user>` hands an ingested
+course to a further student: Courses copies the course of the same
+name from `<other-user>` through the Course Store - input and derived
+files, without `cheatsheet.md` and `progress.md` - and makes no AI
+call. A course that is not ingested is not copied.
 
 ==== Failure and Resumption
 
@@ -42,13 +47,11 @@ according to the number of past exams in the course.
   complete. Before issuing a request, a step checks for its result
   and skips work that is already done.
 * The AI Client retries transient API errors (rate limit, overload).
-  A job that fails is retried by the queue and resumes at the first
-  missing result.
 * When retries are exhausted or the error is permanent (invalid API
-  key, exhausted credit), Courses sets the course to _failed_ with
-  the reason. The student can restart ingestion, which resumes the
-  same way.
-* `topics.json` exists only for a fully ingested course.
+  key, exhausted credit), the command fails with the reason. `course
+  ingest <user> <course>` resumes at the first missing result.
+* `topics.json` exists only for a fully ingested course; until then
+  the course is listed as not ingested and does not open.
 
 [[runtime-chat-message]]
 === Chat Message
@@ -86,13 +89,15 @@ include::diagrams/runtime-finalization.puml[]
 Only topic-level chats are finalized, and only once the student has
 written in them.
 
-. A topic-level chat ends when the student opens another chat and
-  confirms the warning, or closes the tab. The frontend posts its transcript - on tab close as
-  a `keepalive` request - and Tutor enqueues its finalization.
-. The worker sends one request with the transcript, the topic's
+. A topic-level chat ends when the student opens another chat or
+  chooses another user and confirms the warning, or closes the tab. The frontend posts its transcript - on tab close as
+  a `keepalive` request. Tutor answers at once and finalizes in a
+  background task of the backend process.
+. Tutor sends one request with the transcript, the topic's
   `topic.md`, and its current `progress.md`, and receives the updated
   progress, with assessed and self-reported signals kept apart.
-. The worker writes `progress.md` through the Course Store.
+. Tutor writes `progress.md` through the Course Store.
 
-Finalization jobs of one course run one at a time, so two sessions on the same topic never write its
-progress concurrently.
+Finalizations of one course run one at a time, so two sessions on the
+same topic never write its progress concurrently. A finalization that
+is running when the backend stops is lost.

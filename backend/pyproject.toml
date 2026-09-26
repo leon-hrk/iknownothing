@@ -14,7 +14,7 @@ dependencies = [
 dev = ["pytest>=8", "httpx>=0.28"]
 
 [project.scripts]
-ikn-dev = "iknownothing.devcli:main"
+iknownothing = "iknownothing.cli:main"
 
 [build-system]
 requires = ["setuptools>=69"]

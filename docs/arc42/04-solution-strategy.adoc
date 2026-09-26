@@ -24,16 +24,15 @@
   Ingestion and topic-level chats send PDF pages as documents and use
   Claude's vision capability.
 
-| Content storage
-| Filesystem. Uploaded PDFs, all derived Markdown artifacts, and
-  student state are files, namespaced per user.
+| Storage
+| Filesystem only. A user is a directory; course PDFs, all derived
+  Markdown artifacts, and student state are files in it (see
+  <<adr-no-login>>).
 
-| Relational storage
-| PostgreSQL for users, course metadata, and the job queue.
-
-| Background jobs
-| Job queue in PostgreSQL (procrastinate), executed by a worker
-  process from the application image (see <<adr-postgres-job-queue>>).
+| Background work
+| None beyond a request: the operator's command runs ingestion, and
+  finalization runs as a background task of the backend process (see
+  <<adr-operator-ingestion>>).
 
 | Retrieval
 | None. Every topic records its source pages, and a topic-level chat
@@ -53,7 +52,7 @@
 . *Context discipline.* Sessions load only the current topic's
   artifacts and source pages - never entire courses.
 . *Fail gracefully on missing materials.* The pipeline adapts to
-  whatever the student can provide.
+  whatever material there is for a course.
 . *Multi-tenant by design.* All data is strictly namespaced per user;
   there is no shared state between users.
 

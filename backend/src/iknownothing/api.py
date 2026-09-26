@@ -1,6 +1,6 @@
-"""The HTTP API: courses, course files, and chats; serves the built frontend from `IKN_FRONTEND_DIR`.
+"""The HTTP API: users, courses, course files, and chats; serves the built frontend from `IKN_FRONTEND_DIR`.
 
-Without accounts yet, every request is served for the user named by `IKN_USER`.
+Every request except listing and choosing users is served for the user in the cookie `ikn_user`.
 """
 
 import asyncio
@@ -9,11 +9,12 @@ import logging
 from collections import defaultdict
 from collections.abc import AsyncIterator
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, HTTPException, Response
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from iknownothing import accounts, courses
 from iknownothing.ai_client import AIClient, AIError
 from iknownothing.config import Settings
 from iknownothing.course_store import CourseStore, CourseStoreError
@@ -27,14 +28,36 @@ settings = Settings.from_env()
 app = FastAPI(title="iknownothing")
 
 HEARTBEAT = 10
+COOKIE = "ikn_user"
 
 _finalization_locks: defaultdict[tuple[str, str], asyncio.Lock] = defaultdict(asyncio.Lock)
 
 
-def current_user() -> str:
-    if not settings.user:
-        raise HTTPException(500, "IKN_USER is not set")
-    return settings.user
+def current_user(ikn_user: str | None = Cookie(None)) -> str:
+    if ikn_user is None or not accounts.exists(settings.data_dir, ikn_user):
+        raise HTTPException(401, "no user chosen")
+    return ikn_user
+
+
+@app.get("/api/users")
+def list_users() -> list[str]:
+    return accounts.names(settings.data_dir)
+
+
+@app.get("/api/user")
+def get_user(user: str = Depends(current_user)) -> dict:
+    return {"name": user}
+
+
+class UserChoice(BaseModel):
+    name: str
+
+
+@app.post("/api/user", status_code=204)
+def choose_user(body: UserChoice, response: Response) -> None:
+    if not accounts.exists(settings.data_dir, body.name):
+        raise HTTPException(404, "no such user")
+    response.set_cookie(COOKIE, body.name, max_age=365 * 24 * 3600, httponly=True, samesite="strict")
 
 
 def course_store(course: str, user: str = Depends(current_user)) -> CourseStore:
@@ -53,15 +76,11 @@ def ready_store(store: CourseStore = Depends(course_store)) -> CourseStore:
     return store
 
 
-def _status(store: CourseStore) -> str:
-    return "ready" if store.exists("topics.json") else "created"
-
-
 @app.get("/api/courses")
 def list_courses(user: str = Depends(current_user)) -> list[dict]:
     d = settings.data_dir / user
-    names = sorted(p.name for p in d.iterdir() if p.is_dir()) if d.is_dir() else []
-    return [{"name": n, "status": _status(CourseStore(settings.data_dir, user, n))} for n in names]
+    names = sorted(p.name for p in d.iterdir() if p.is_dir())
+    return [{"name": n, "status": courses.status(CourseStore(settings.data_dir, user, n))} for n in names]
 
 
 @app.get("/api/courses/{course}")
@@ -73,7 +92,7 @@ def get_course(store: CourseStore = Depends(course_store)) -> dict:
             files = sorted(p.name for p in store.path(t["dir"]).glob("*.md"))
             topics.append({"slug": t["slug"], "name": t["name"], "priority": t["priority"],
                            "files": [f"{t['dir']}/{f}" for f in files]})
-    return {"name": store.course, "status": _status(store), "topics": topics,
+    return {"name": store.course, "status": courses.status(store), "topics": topics,
             "files": [f for f in ("notes.md", "cheatsheet.md") if store.exists(f)]}
 
 

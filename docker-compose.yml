@@ -1,0 +1,11 @@
+services:
+  backend:
+    build: .
+    user: "${IKN_UID:-1000}:${IKN_GID:-1000}"
+    env_file: .env
+    ports:
+      - "127.0.0.1:${IKN_PORT:-8000}:8000"
+    volumes:
+      - ./data:/data
+      - ./courses:/courses:ro
+    restart: unless-stopped

@@ -5,6 +5,7 @@ import io
 import json
 import os
 import re
+import shutil
 import tempfile
 from collections import defaultdict
 from collections.abc import Callable
@@ -100,3 +101,11 @@ class CourseStore:
         buf = io.BytesIO()
         writer.write(buf)
         return buf.getvalue()
+
+    def files(self) -> list[str]:
+        """All files of the course, relative to its directory."""
+        return [p.relative_to(self.root).as_posix() for p in sorted(self.root.rglob("*"))
+                if p.is_file() and not p.name.startswith(".")]
+
+    def remove(self) -> None:
+        shutil.rmtree(self.root)

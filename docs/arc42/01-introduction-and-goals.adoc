@@ -1,9 +1,9 @@
 == Introduction and Goals
 
 iknownothing is a self-hosted, AI-powered exam preparation tutor. The
-student uploads their course materials and says "I know nothing" -
-the agent builds a structured, topic-based study plan and tutors them
-through it, from knowing nothing to exam ready. Along the way it keeps
+operator loads a student's course materials into it, the student says
+"I know nothing" - the agent builds a structured, topic-based study
+plan and tutors them through it, from knowing nothing to exam ready. Along the way it keeps
 a cheatsheet of what the student has learned and tracks their progress
 per topic.
 
@@ -30,15 +30,19 @@ fills during chats, and a *progress* file per topic, updated after
 every session on that topic. Every new session starts from them
 instead of from zero.
 
-==== Accounts and Hosting
+==== Users and Hosting
 
 * Self-hosted web application for small deployments.
 * Multi-user: per-user courses and progress. No data is shared
   between users.
-* The operator creates the accounts; users log in with name and
-  password. There is no self-registration.
+* The operator creates the users; a user picks themselves from the
+  list of users in the UI. There is no login and no self-registration.
 * The operator provides one Anthropic API key for the instance. All AI
   calls of all users, including ingestion, run on that key.
+* The operator provides the course material: they add a course for a
+  student from its PDFs and `notes.md` and ingest it. An ingested
+  course can be copied to further students without being ingested
+  again.
 
 ==== Course
 
@@ -53,7 +57,7 @@ The top-level unit, owned by a user. A course contains:
 [[ingestion-pipeline]]
 ==== Ingestion Pipeline
 
-Runs per course, as one request over all uploaded PDFs together with
+Runs per course, as one request over all of its PDFs together with
 `notes.md`. Ingestion reads past exams and exercises only; lecture
 material is not part of a course (see <<adr-no-lecture>>). Nothing is
 transcribed: ingestion finds the topics and records where in the PDFs
@@ -91,9 +95,11 @@ pages, figures included - and nothing else of the PDFs.
 
 ==== Course Lifecycle
 
-A course is ingested *once*, from the PDFs and the `notes.md` uploaded
-when it is created. Ingestion does not start without `notes.md`.
-Nothing can be added to or changed in a course afterwards.
+A course is ingested *once*, from the PDFs and the `notes.md` the
+operator adds it with. Ingestion does not start without `notes.md`.
+Nothing can be added to or changed in a course afterwards. Until
+ingestion is done, the course is listed as not ready and cannot be
+opened.
 
 The student can read every Markdown file of a course but edits none.
 Only the tutor writes after ingestion: `cheatsheet.md` through the
@@ -101,7 +107,7 @@ chat, `progress.md` on finalization.
 
 ==== Fallback Strategies
 
-The pipeline adapts to the material the student can provide:
+The pipeline adapts to the material there is for a course:
 
 * *Many past exams*: topics, priority, and difficulty come directly
   from the exams.
@@ -233,7 +239,7 @@ interface - they open a course and ask a question.
 |                             |                                          |
 |                             | +------------------------------------+   |
 |                             | | Ask anything...                 >  |   |
-|                             | +------------------------------------+   |
+| [ alice                  v] | +------------------------------------+   |
 |                             |                                          |
 +-----------------------------+------------------------------------------+
 ....
@@ -251,7 +257,10 @@ interface - they open a course and ask a question.
   that shows the file rendered and read-only: the files of a topic,
   *Notes*, and *Cheatsheet*. The open chat is not ended by this; the
   student switches back to it.
-* Uploaded PDFs are not shown.
+* The PDFs of a course are not shown.
+* A *user dropdown* ends the course tree. Choosing another user shows
+  that user's courses; an open chat is ended as when opening another
+  chat, after the same warning.
 
 ==== Out of Scope
 
@@ -281,14 +290,19 @@ Direction, not a plan. Nothing here is designed.
 * *Course updates.* Adding material to an existing course, editing
   derived files, and incremental re-ingestion that rebuilds only what
   a change affects while keeping student progress and user edits.
-* *PDF viewer.* The uploaded PDFs shown in the UI.
+* *PDF viewer.* The PDFs of a course shown in the UI.
+* *Upload in the UI.* The student creates a course and uploads its
+  PDFs and `notes.md` in the browser, and ingestion runs in the
+  background while the UI shows its progress.
 * *Figure extraction.* Figures and diagrams extracted from the PDFs
   as image files and shown in the UI.
 * *EU-hosted AI providers*, for users who cannot or will not send
   course material to a US provider.
-* *Sharing course material between accounts.*
+* *Sharing course material between users.*
 * *Per-user API keys.* Every user enters their own Anthropic API key
   in account settings, and their AI calls run on it.
+* *Login.* Users log in with name and password, so that only they
+  can use their courses.
 * *Self-service accounts.* Self-registration, and users changing their
   own password.
 
@@ -348,7 +362,8 @@ Ordered by priority. Concrete scenarios are in
 | Operator
 | Runs an instance for themselves or a small group with minimal
   setup and no special hardware. Provides the Anthropic API key, pays
-  for all AI calls, and manages the accounts.
+  for all AI calls, creates the users, and adds the students'
+  courses.
 
 | Developer
 | Builds against this specification; needs clear boundaries and

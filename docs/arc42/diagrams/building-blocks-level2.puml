@@ -2,7 +2,7 @@
 skinparam shadowing false
 skinparam defaultTextAlignment center
 
-rectangle "Backend / Worker" {
+rectangle "Backend" {
   component "Accounts" as accounts
   component "Courses" as courses
   component "Ingestion" as ingestion
@@ -11,21 +11,17 @@ rectangle "Backend / Worker" {
   component "AI Client" as aiclient
 }
 
-database "PostgreSQL" as db
 folder "Filesystem" as fs
 cloud "Anthropic API" as ai
 
 courses --> store
-courses --> ingestion : enqueue
-ingestion --> courses : status
+courses --> ingestion : ingest
 ingestion --> store
 ingestion --> aiclient
 tutor --> store
 tutor --> aiclient
 aiclient --> ai
 
-accounts --> db
-courses --> db
-tutor --> db
+accounts --> fs
 store --> fs
 @enduml

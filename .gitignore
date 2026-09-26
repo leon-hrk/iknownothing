@@ -2,6 +2,9 @@
 # namespaced per user. Never committed.
 /data/
 
+# Course material the operator hands to users
+/courses/
+
 # Secrets
 .env
 .env.*

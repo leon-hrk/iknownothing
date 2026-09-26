@@ -16,10 +16,36 @@ export type ChatEvent =
   | { kind: "messages"; data: Message[] }
   | { kind: "error"; data: string };
 
-async function json<T>(url: string): Promise<T> {
-  const r = await fetch(url);
+/** Fired when a request finds no chosen user, e.g. after the user was removed. */
+export const UNAUTHORIZED = "ikn-unauthorized";
+
+async function request(url: string, init?: RequestInit): Promise<Response> {
+  const r = await fetch(url, init);
+  if (r.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED));
   if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
-  return r.json();
+  return r;
+}
+
+async function json<T>(url: string): Promise<T> {
+  return (await request(url)).json();
+}
+
+export const listUsers = () => json<string[]>("/api/users");
+
+/** The chosen user, or null. */
+export async function currentUser(): Promise<string | null> {
+  const r = await fetch("/api/user");
+  if (r.status === 401) return null;
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  return (await r.json()).name;
+}
+
+export async function chooseUser(name: string): Promise<void> {
+  await request("/api/user", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
 }
 
 const base = (course: string) => `/api/courses/${encodeURIComponent(course)}`;
@@ -29,23 +55,20 @@ export const listCourses = () => json<CourseSummary[]>("/api/courses");
 export const getCourse = (course: string) => json<Course>(base(course));
 
 export async function readFile(course: string, path: string): Promise<string> {
-  const r = await fetch(`${base(course)}/files/${path}`);
-  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
-  return r.text();
+  return (await request(`${base(course)}/files/${path}`)).text();
 }
 
 /** Streams the reply to a transcript that ends with the student's message. */
 export async function* chat(
   course: string, topic: string | null, transcript: Message[], signal: AbortSignal,
 ): AsyncGenerator<ChatEvent> {
-  const r = await fetch(`${base(course)}/chat`, {
+  const r = await request(`${base(course)}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ topic, transcript }),
     signal,
   });
-  if (!r.ok || !r.body) throw new Error(`${r.status} ${await r.text()}`);
-  const reader = r.body.pipeThrough(new TextDecoderStream()).getReader();
+  const reader = r.body!.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = "";
   for (;;) {
     const { value, done } = await reader.read();

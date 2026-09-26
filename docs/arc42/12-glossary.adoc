@@ -35,14 +35,14 @@
   read-only for the student.
 
 | Document type
-| Exercise sheet or past exam. Chosen on upload,
-  stored as the subdirectory of `sources/`, and the basis of source
-  priority.
+| Exercise sheet or past exam. Given by the subdirectory the operator
+  puts the file in, stored as the subdirectory of `sources/`, and the
+  basis of source priority.
 
 | Finalization
 | Updating a topic's `progress.md` from a topic-level chat. Happens
-  when the chat ends: the student opens another chat or closes the
-  tab.
+  when the chat ends: the student opens another chat, chooses another
+  user, or closes the tab.
 
 | Gradability tier
 | The class of a task by how the tutor can handle it. *Tier A*: posed
@@ -50,8 +50,8 @@
   not posed, named to the student.
 
 | Input file
-| A file the pipeline takes as given: the uploaded PDFs and
-  `notes.md`.
+| A file the pipeline takes as given: the course PDFs and
+  `notes.md`, provided by the operator.
 
 | Ingestion
 | The pipeline that turns a course's PDFs into topics with their
@@ -63,13 +63,13 @@
   chats, progress on finalization.
 
 | Notes file
-| `notes.md`: the student's free-form remarks about the course, which
-  the AI must respect. Required, uploaded when the course is created,
-  and read-only afterwards.
+| `notes.md`: free-form remarks about the course, which the AI must
+  respect. Required, provided by the operator when the course is
+  added, and read-only afterwards.
 
 | Operator
 | The person who runs an instance, provides its Anthropic API key,
-  and manages its accounts.
+  creates its users, and adds the courses of its students.
 
 | Progress
 | `topics/<topic>/progress.md`: the student's mastery of one topic,
@@ -85,7 +85,7 @@
   while it is open; one is open at a time.
 
 | Source
-| An uploaded PDF in `sources/`.
+| A course PDF in `sources/`.
 
 | Source priority
 | The ranking of document types. For what a topic is: past exams >
