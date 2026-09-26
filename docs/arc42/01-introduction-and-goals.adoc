@@ -259,7 +259,8 @@ interface - they open a course and ask a question.
   the cached share named, output (↓) tokens, and the approximate cost
   in euros: in the title line of the open chat, and on three lines in
   an expanded topic for all its chats and finalizations and in an
-  expanded course for its course-level chats.
+  expanded course for the whole course, its course-level chats and
+  all its topics together.
 * Clicking a Markdown file - the files of a topic, *Notes*, and
   *Cheatsheet* - shows it rendered and read-only in the *document
   column* beside the chat, each taking half the width. A closed

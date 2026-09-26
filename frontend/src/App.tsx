@@ -244,7 +244,9 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
                     })}
                     {detail.files.includes("notes.md") && file(c.name, "notes.md", "Notes", `${c.name} · Notes`)}
                     {detail.files.includes(CHEATSHEET) && file(c.name, CHEATSHEET, "Cheatsheet", `${c.name} · Cheatsheet`)}
-                    <li className="usage" title="Course-level chat"><Tokens usage={detail.usage} stacked /></li>
+                    <li className="usage" title="Whole course: course-level chat and all topics">
+                      <Tokens usage={detail.topics.map((t) => t.usage).reduce(addUsage, detail.usage)} stacked />
+                    </li>
                   </ul>
                 )}
               </li>
