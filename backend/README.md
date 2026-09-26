@@ -38,7 +38,7 @@ Topic-level chats are finalized in the backend process.
 | `GET /api/user` | the chosen user |
 | `POST /api/user` | chooses a user; sets the cookie |
 | `GET /api/courses` | the user's courses |
-| `GET /api/courses/<course>` | topics in priority order, with their Markdown files |
+| `GET /api/courses/<course>` | topics in priority order, with their Markdown files and token usage; token usage of the course-level chats. Usage: `input` (cached included), `cached`, `output` tokens, and approximate `eur` |
 | `GET /api/courses/<course>/files/<path>` | one Markdown file |
-| `POST /api/courses/<course>/chat` | streams the reply as Server-Sent Events: `text`, `cheatsheet`, `task`, then `messages` to append to the transcript, or `error`; a comment every 10 s while the model thinks |
+| `POST /api/courses/<course>/chat` | streams the reply as Server-Sent Events: `text`, `cheatsheet`, `task`, then `usage` with the reply's tokens and `messages` to append to the transcript, or `error`; a comment every 10 s while the model thinks |
 | `POST /api/courses/<course>/topics/<slug>/finalize` | ends a topic-level chat; updates `progress.md` in the background |

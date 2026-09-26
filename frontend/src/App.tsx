@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
-  chooseUser, type Course, type CourseSummary, currentUser, finalize, getCourse, listCourses, listUsers, type Message,
-  readFile, UNAUTHORIZED,
+  addUsage, chooseUser, type Course, type CourseSummary, currentUser, finalize, getCourse, listCourses, listUsers,
+  type Message, NO_USAGE, readFile, UNAUTHORIZED, type Usage,
 } from "./api";
 import Chat, { type OpenChat } from "./Chat";
 import Markdown from "./Markdown";
+import Tokens from "./Tokens";
 
 /** A Markdown file of a course, shown in the document column. */
 type Doc = { course: string; path: string; title: string };
@@ -152,7 +153,7 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
 
   function openChat(course: string, topic: string | null, title: string) {
     leaveChat(() => {
-      setChat({ id: nextId++, course, topic, title, transcript: [] });
+      setChat({ id: nextId++, course, topic, title, transcript: [], usage: NO_USAGE });
       setExpanded((s) => new Set(s).add(course));
       load(course);
     });
@@ -164,6 +165,11 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
 
   const onCheatsheet = useCallback(() => {
     setCheatsheetVersion((v) => v + 1);
+    if (chatRef.current) load(chatRef.current.course);
+  }, [load]);
+
+  const onUsage = useCallback((id: number, usage: Usage) => {
+    setChat((c) => (c?.id === id ? { ...c, usage: addUsage(c.usage, usage) } : c));
     if (chatRef.current) load(chatRef.current.course);
   }, [load]);
 
@@ -224,16 +230,20 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
                             <span className={`priority ${t.priority}`}>{t.priority}</span>
                           </div>
                           {expanded.has(key) && (
-                            <ul>{t.files.map((f) => {
-                              const name = f.split("/").at(-1)!;
-                              return file(c.name, f, name, `${t.name} · ${name}`);
-                            })}</ul>
+                            <ul>
+                              <li className="usage"><Tokens usage={t.usage} stacked /></li>
+                              {t.files.map((f) => {
+                                const name = f.split("/").at(-1)!;
+                                return file(c.name, f, name, `${t.name} · ${name}`);
+                              })}
+                            </ul>
                           )}
                         </li>
                       );
                     })}
                     {detail.files.includes("notes.md") && file(c.name, "notes.md", "Notes", `${c.name} · Notes`)}
                     {detail.files.includes(CHEATSHEET) && file(c.name, CHEATSHEET, "Cheatsheet", `${c.name} · Cheatsheet`)}
+                    <li className="usage" title="Course-level chat"><Tokens usage={detail.usage} stacked /></li>
                   </ul>
                 )}
               </li>
@@ -242,8 +252,11 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
         </ul>
       </nav>
       <main>
-        <header title={chat?.title}>{chat?.title ?? ""}</header>
-        {chat && <Chat key={chat.id} open={chat} update={(t) => update(chat.id, t)} onCheatsheet={onCheatsheet} />}
+        <header>
+          <span className="title" title={chat?.title}>{chat?.title ?? ""}</span>
+          {chat && <Tokens usage={chat.usage} />}
+        </header>
+        {chat && <Chat key={chat.id} open={chat} update={(t) => update(chat.id, t)} onCheatsheet={onCheatsheet} onUsage={(u) => onUsage(chat.id, u)} />}
         {!chat && <p className="hint">{user ? "Open a course to start." : "Choose a user at the bottom left."}</p>}
       </main>
       {panel && doc && <Document doc={doc} version={doc.path === CHEATSHEET ? cheatsheetVersion : 0} />}

@@ -38,7 +38,7 @@ according to the number of past exams in the course.
 `course add <user> <course> --from <other-user>` hands an ingested
 course to a further student: Courses copies the course of the same
 name from `<other-user>` through the Course Store - input and derived
-files, without `cheatsheet.md` and `progress.md` - and makes no AI
+files, without the student state - and makes no AI
 call. A course that is not ingested is not copied.
 
 ==== Failure and Resumption

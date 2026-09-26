@@ -9,6 +9,7 @@ from typing import Any
 
 import anthropic
 
+from iknownothing import pricing
 from iknownothing.config import Settings
 
 log = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ class AIClient:
         self._models = {"large": settings.model_large, "small": settings.model_small}
         self._user = user
         self._course = course
-        self.usage: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        self.usage: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(int))
 
     async def close(self) -> None:
         await self._client.close()
@@ -108,6 +109,16 @@ class AIClient:
             raise AIError(f"{request_type}: reply exceeded max_tokens")
         return "".join(b.text for b in msg.content if b.type == "text")
 
+    def tokens(self) -> dict[str, float]:
+        """Of all requests so far: input tokens, cached ones included; cached input tokens; output
+        tokens; and the approximate cost in euros."""
+        return {
+            "input": sum(u["input"] + u["cache_read"] + u["cache_write"] for u in self.usage.values()),
+            "cached": sum(u["cache_read"] for u in self.usage.values()),
+            "output": sum(u["output"] for u in self.usage.values()),
+            "eur": sum(u["eur"] for u in self.usage.values()),
+        }
+
     def _record_usage(self, request_type: str, msg: Any) -> None:
         u = msg.usage
         cache_read = u.cache_read_input_tokens or 0
@@ -123,3 +134,4 @@ class AIClient:
         totals["output"] += u.output_tokens
         totals["cache_read"] += cache_read
         totals["cache_write"] += cache_write
+        totals["eur"] += pricing.eur(msg.model, u.input_tokens, u.output_tokens, cache_read, cache_write)

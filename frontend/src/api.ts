@@ -1,8 +1,16 @@
 export type CourseSummary = { name: string; status: string };
 
-export type Topic = { slug: string; name: string; priority: string; files: string[] };
+/** Tokens sent to the model, cached ones included; of these, the cached ones; tokens it replied with; approximate cost. */
+export type Usage = { input: number; cached: number; output: number; eur: number };
 
-export type Course = { name: string; status: string; topics: Topic[]; files: string[] };
+export const NO_USAGE: Usage = { input: 0, cached: 0, output: 0, eur: 0 };
+
+export const addUsage = (a: Usage, b: Usage): Usage =>
+  ({ input: a.input + b.input, cached: a.cached + b.cached, output: a.output + b.output, eur: a.eur + b.eur });
+
+export type Topic = { slug: string; name: string; priority: string; files: string[]; usage: Usage };
+
+export type Course = { name: string; status: string; topics: Topic[]; files: string[]; usage: Usage };
 
 /** A content block as the Messages API has it: text, tool use, tool result, thinking. */
 export type Block = { type: string; text?: string; name?: string; input?: Record<string, string>; [key: string]: unknown };
@@ -13,6 +21,7 @@ export type ChatEvent =
   | { kind: "text"; data: string }
   | { kind: "cheatsheet"; data: { section: string; heading: string; body: string } }
   | { kind: "task"; data: { task: string; tier: "A" | "B" } }
+  | { kind: "usage"; data: Usage }
   | { kind: "messages"; data: Message[] }
   | { kind: "error"; data: string };
 

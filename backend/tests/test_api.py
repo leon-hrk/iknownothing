@@ -13,6 +13,9 @@ class ClosableFakeAI(FakeAI):
     async def close(self):
         pass
 
+    def tokens(self):
+        return {"input": 100, "cached": 80, "output": 10, "eur": 0.5}
+
 
 @pytest.fixture
 def client(store, tmp_path, monkeypatch):  # noqa: F811
@@ -38,7 +41,7 @@ def test_course_and_files(client):
     assert client.get("/api/courses").json() == [{"name": "control", "status": "ready"}]
     course = client.get("/api/courses/control").json()
     assert course["topics"] == [{"slug": "laplace", "name": "Laplace", "priority": "high",
-                                 "files": ["topics/laplace/topic.md"]}]
+                                 "files": ["topics/laplace/topic.md"], "usage": {"input": 0, "cached": 0, "output": 0, "eur": 0.0}}]
     assert course["files"] == ["notes.md"]
     assert client.get("/api/courses/control/files/topics/laplace/topic.md").text == "# Laplace"
     assert client.get("/api/courses/control/files/sources/exams/2023.pdf").status_code == 404
@@ -50,8 +53,14 @@ def test_chat_streams_reply(client, store):  # noqa: F811
     transcript = [{"role": "user", "content": "quiz me"}]
     r = client.post("/api/courses/control/chat", json={"topic": "laplace", "transcript": transcript})
     evs = events(r)
-    assert [k for k, _ in evs] == ["cheatsheet", "task", "text", "messages"]
+    assert [k for k, _ in evs] == ["cheatsheet", "task", "text", "usage", "messages"]
+    assert evs[-2][1] == {"input": 100, "cached": 80, "output": 10, "eur": 0.5}
     assert [m["role"] for m in evs[-1][1]] == ["assistant", "user", "assistant"]
+    client.post("/api/courses/control/chat", json={"topic": "laplace", "transcript": transcript})
+    client.post("/api/courses/control/chat", json={"topic": None, "transcript": transcript})
+    course = client.get("/api/courses/control").json()
+    assert course["topics"][0]["usage"] == {"input": 200, "cached": 160, "output": 20, "eur": 1.0}
+    assert course["usage"] == {"input": 100, "cached": 80, "output": 10, "eur": 0.5}
     assert "Laplace" in store.read_text("cheatsheet.md")
 
     r = client.post("/api/courses/control/chat", json={"topic": "nope", "transcript": transcript})
@@ -65,6 +74,7 @@ def test_finalize(client, store):  # noqa: F811
     r = client.post("/api/courses/control/topics/laplace/finalize", json={"transcript": transcript})
     assert r.status_code == 202
     assert store.read_text("topics/laplace/progress.md") == "# Progress\n"
+    assert store.read_json("topics/laplace/usage.json") == {"input": 100, "cached": 80, "output": 10, "eur": 0.5}
 
 
 def test_chat_heartbeat(client, monkeypatch):

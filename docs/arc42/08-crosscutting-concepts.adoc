@@ -27,12 +27,14 @@ data/<user>/<course>/
 │       └── <file>.pdf      original
 ├── notes.md                remarks on the course
 ├── cheatsheet.md           living artifact
+├── usage.json              tokens of the course-level chats
 ├── topics.json             topic list
 ├── ingestion/              intermediate pipeline results
 │   └── topics.json         topics as extracted
 └── topics/<topic>/
     ├── topic.md            topic artifact
-    └── progress.md         living artifact
+    ├── progress.md         living artifact
+    └── usage.json          tokens of the topic's chats and finalizations
 ....
 
 The subdirectory of `sources/` is the document type, given by the
@@ -54,8 +56,9 @@ The files fall into three classes:
 | Ingestion, once
 
 | Student state
-| `cheatsheet.md`, `progress.md`
-| Chat tools for `cheatsheet.md`, finalization for `progress.md`
+| `cheatsheet.md`, `progress.md`, `usage.json`
+| Chat tools for `cheatsheet.md`, finalization for `progress.md`,
+  chats and finalizations for `usage.json`
 |===
 
 The student edits no file. Every Markdown file is shown rendered and
@@ -176,8 +179,16 @@ chat, its source pages before everything else - and mark it for
 prompt caching, since every message sends it again.
 
 The AI Client logs model and token usage of every request with user,
-course, and request type. The cost of an ingestion and of a course's
-tutoring is read from this log.
+course, and request type. The cost of an ingestion is read from this
+log.
+
+Every chat request and finalization adds its input tokens, cached ones
+included, its cached input tokens, its output tokens, and its
+approximate cost in euros to a `usage.json`: the topic's for
+topic-level chats and their finalizations, the course's for
+course-level chats. The cost is computed from Anthropic's list prices
+per model and a fixed exchange rate, both in the backend source. The
+UI shows these totals, and each chat reply reports its own.
 
 === Concurrency
 

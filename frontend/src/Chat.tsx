@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
-import { type Block, chat, type Message } from "./api";
+import { type Block, chat, type Message, type Usage } from "./api";
 import Markdown from "./Markdown";
 
-export type OpenChat = { id: number; course: string; topic: string | null; title: string; transcript: Message[] };
+export type OpenChat = {
+  id: number; course: string; topic: string | null; title: string; transcript: Message[]; usage: Usage;
+};
 
 type Part = { kind: "text"; text: string } | { kind: "note"; text: string };
 
@@ -35,10 +37,11 @@ function Turn({ message }: { message: Message }) {
   );
 }
 
-export default function Chat({ open, update, onCheatsheet }: {
+export default function Chat({ open, update, onCheatsheet, onUsage }: {
   open: OpenChat;
   update: (transcript: Message[]) => void;
   onCheatsheet: () => void;
+  onUsage: (usage: Usage) => void;
 }) {
   const [input, setInput] = useState("");
   const [live, setLive] = useState<Part[] | null>(null);
@@ -71,6 +74,8 @@ export default function Chat({ open, update, onCheatsheet }: {
           onCheatsheet();
         } else if (e.kind === "task") {
           setLive((parts) => [...parts!, { kind: "note", text: `Task: ${e.data.task} · Tier ${e.data.tier}` }]);
+        } else if (e.kind === "usage") {
+          onUsage(e.data);
         } else if (e.kind === "messages") {
           update([...transcript, ...e.data]);
           setLive(null);

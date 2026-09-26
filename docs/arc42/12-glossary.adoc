@@ -96,8 +96,8 @@
 | The user of the tutor. Owns courses.
 
 | Student state
-| The progress files and `cheatsheet.md`. Derived from the student,
-  not from the material.
+| The progress files, `cheatsheet.md`, and the token usage files.
+  Derived from the student, not from the material.
 
 | Topic
 | A unit of exam content, defined by what the exam asks. Carries a

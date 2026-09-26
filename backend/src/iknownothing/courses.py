@@ -1,10 +1,11 @@
 """Courses: a user's courses and their status, and the operator's course commands."""
 
+import json
 from pathlib import Path
 
 from iknownothing.course_store import DOC_TYPES, CourseStore
 
-STUDENT_STATE = ("cheatsheet.md", "progress.md")
+STUDENT_STATE = ("cheatsheet.md", "progress.md", "usage.json")
 
 
 class CourseError(Exception):
@@ -49,3 +50,25 @@ def copy_from(store: CourseStore, src: CourseStore) -> None:
     for rel in src.files():
         if rel.split("/")[-1] not in STUDENT_STATE:
             store.write_bytes(rel, src.read_bytes(rel))
+
+
+USAGE = "usage.json"
+_NO_USAGE = {"input": 0, "cached": 0, "output": 0, "eur": 0.0}
+
+
+def _usage_file(directory: str) -> str:
+    return f"{directory}/{USAGE}" if directory else USAGE
+
+
+def usage(store: CourseStore, directory: str = "") -> dict[str, int]:
+    """Tokens and approximate euros spent on the chats of a topic directory, or of the course-level chat for `""`."""
+    rel = _usage_file(directory)
+    return _NO_USAGE | (store.read_json(rel) if store.exists(rel) else {})
+
+
+async def add_usage(store: CourseStore, directory: str, tokens: dict[str, float]) -> None:
+    def change(text: str) -> str:
+        total = _NO_USAGE | (json.loads(text) if text else {})
+        return json.dumps({k: total[k] + tokens[k] for k in total}) + "\n"
+
+    await store.update_text(_usage_file(directory), change)

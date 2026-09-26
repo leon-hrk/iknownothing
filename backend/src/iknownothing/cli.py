@@ -77,7 +77,7 @@ def main() -> None:
 
     course = sub.add_parser("course").add_subparsers(required=True)
     p = course.add_parser("add", help="hand a course to a user: ingest it from a directory under courses/, "
-                                      "or copy it from another user without their cheatsheet and progress")
+                                      "or copy it from another user without their cheatsheet, progress, and token usage")
     p.add_argument("user")
     p.add_argument("course")
     source = p.add_mutually_exclusive_group()

@@ -85,15 +85,19 @@ def list_courses(user: str = Depends(current_user)) -> list[dict]:
 
 @app.get("/api/courses/{course}")
 def get_course(store: CourseStore = Depends(course_store)) -> dict:
-    """The course with its topics in priority order, each with the Markdown files of its directory."""
+    """The course with its topics in priority order, each with the Markdown files of its directory.
+
+    `usage` holds the tokens spent on the chats of a topic, finalizations included, and on the
+    course-level chat.
+    """
     topics = []
     if store.exists("topics.json"):
         for t in store.read_json("topics.json"):
             files = sorted(p.name for p in store.path(t["dir"]).glob("*.md"))
             topics.append({"slug": t["slug"], "name": t["name"], "priority": t["priority"],
-                           "files": [f"{t['dir']}/{f}" for f in files]})
+                           "files": [f"{t['dir']}/{f}" for f in files], "usage": courses.usage(store, t["dir"])})
     return {"name": store.course, "status": courses.status(store), "topics": topics,
-            "files": [f for f in ("notes.md", "cheatsheet.md") if store.exists(f)]}
+            "files": [f for f in ("notes.md", "cheatsheet.md") if store.exists(f)], "usage": courses.usage(store)}
 
 
 @app.get("/api/courses/{course}/files/{rel:path}", response_class=PlainTextResponse)
@@ -121,15 +125,16 @@ def _sse(event: str, data: object) -> str:
 async def chat(body: ChatRequest, store: CourseStore = Depends(ready_store)) -> StreamingResponse:
     """Streams the reply to a transcript that ends with the student's message.
 
-    Events: `text`, `cheatsheet`, and `task` while the reply arrives, then `messages` with the
-    messages to append to the transcript, or `error`. While the model thinks, a comment every
+    Events: `text`, `cheatsheet`, and `task` while the reply arrives, then `usage` with the
+    tokens of the reply and `messages` with the messages to append to the transcript, or `error`. While the model thinks, a comment every
     `HEARTBEAT` seconds keeps the connection from being closed as idle.
     """
     if not body.transcript or body.transcript[-1].get("role") != "user":
         raise HTTPException(422, "the transcript must end with the student's message")
+    directory = ""
     if body.topic is not None:
         try:
-            topic_entry(store, body.topic)
+            directory = topic_entry(store, body.topic)["dir"]
         except TutorError as e:
             raise HTTPException(404, str(e))
     transcript = body.transcript
@@ -141,6 +146,7 @@ async def chat(body: ChatRequest, store: CourseStore = Depends(ready_store)) -> 
         try:
             async for event in reply(store, ai, body.topic, language, transcript):
                 await queue.put(event)
+            await queue.put(("usage", ai.tokens()))
             await queue.put(("messages", transcript[start:]))
         except (TutorError, AIError) as e:
             await queue.put(("error", str(e)))
@@ -148,6 +154,7 @@ async def chat(body: ChatRequest, store: CourseStore = Depends(ready_store)) -> 
             log.exception("chat failed")
             await queue.put(("error", "the reply failed"))
         finally:
+            await _add_usage(store, directory, ai)
             await ai.close()
             await queue.put(None)
 
@@ -171,6 +178,13 @@ async def chat(body: ChatRequest, store: CourseStore = Depends(ready_store)) -> 
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+async def _add_usage(store: CourseStore, directory: str, ai: AIClient) -> None:
+    try:
+        await courses.add_usage(store, directory, ai.tokens())
+    except Exception:
+        log.exception("recording usage of %s/%s failed", store.user, store.course)
+
+
 class FinalizeRequest(BaseModel):
     transcript: list[dict]
 
@@ -183,6 +197,7 @@ async def _finalize(store: CourseStore, slug: str, transcript: list[dict]) -> No
     except Exception:
         log.exception("finalization of %s/%s/%s failed", store.user, store.course, slug)
     finally:
+        await _add_usage(store, topic_entry(store, slug)["dir"], ai)
         await ai.close()
 
 
