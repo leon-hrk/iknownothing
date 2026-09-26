@@ -239,7 +239,7 @@ interface - they open a course and ask a question.
 |                             |                                          |
 |                             | +------------------------------------+   |
 |                             | | Ask anything...                 >  |   |
-| [ alice                  v] | +------------------------------------+   |
+|                             | +------------------------------------+   |
 |                             |                                          |
 +-----------------------------+------------------------------------------+
 ....
@@ -253,14 +253,19 @@ interface - they open a course and ask a question.
   chat opens only once the student confirms.
 * The *main area* is an ordinary chat. Planning, tutoring, and
   quizzing all happen there.
-* Clicking a Markdown file turns the main area into a Markdown reader
-  that shows the file rendered and read-only: the files of a topic,
-  *Notes*, and *Cheatsheet*. The open chat is not ended by this; the
-  student switches back to it.
+* Clicking a Markdown file - the files of a topic, *Notes*, and
+  *Cheatsheet* - shows it rendered and read-only in the *document
+  column* beside the chat, each taking half the width. A closed
+  document column opens for it.
 * The PDFs of a course are not shown.
-* A *user dropdown* ends the course tree. Choosing another user shows
-  that user's courses; an open chat is ended as when opening another
-  chat, after the same warning.
+* A narrow column left of the course tree holds a button that hides
+  and shows the tree. An arrow on the right edge closes and opens the
+  document column; opened before any file, it shows the *Cheatsheet*
+  of the current course.
+* At the bottom of the narrow column, a round button shows the first
+  two letters of the user and opens the list of users. Choosing
+  another user shows that user's courses; an open chat is ended as
+  when opening another chat, after the same warning.
 
 ==== Out of Scope
 
