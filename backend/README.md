@@ -55,6 +55,8 @@ printed at the end.
 The HTTP API runs with uvicorn on the same data directory. Until
 accounts exist, every request is served for the user named by
 `IKN_USER`; topic-level chats are finalized in the backend process.
+With `IKN_FRONTEND_DIR` set to the built frontend (`../frontend/dist`),
+the backend serves it too.
 
 ```sh
 export IKN_USER=alice

@@ -172,8 +172,9 @@ a chat with messages in it is ended by opening another one.
 * The tutor adapts: "I know nothing about this" - guided
   introduction; "quiz me" - exam-style problems with feedback, at the
   difficulty and working time of the exam tasks in its sources.
-* Tier B tasks are offered alongside Tier A ones, but the UI switches
-  from "submit answer" to "show solution, then rate yourself".
+* Tier B tasks are offered alongside Tier A ones. The tutor shows the
+  reference solution when the student asks for it, and the student
+  rates themselves in the chat.
 * If the topic has Tier C tasks, the session mentions them once, so
   the student knows what they still have to practise elsewhere.
 * Solutions always follow the professor's conventions and notation,

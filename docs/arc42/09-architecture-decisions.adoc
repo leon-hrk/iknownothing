@@ -158,7 +158,8 @@ Status:: accepted
 Context::
 During a chat the tutor does more than write text. It updates the
 cheatsheet while the student works, marks posed tasks with their tier
-so the UI can switch to self-rating. The backend has to recognise each of these
+so that grading and finalization can tell assessed from self-reported
+signals. The backend has to recognise each of these
 reliably, without parsing prose. Retrieval and open-ended agentic
 tool use are out of scope (chapter 1).
 

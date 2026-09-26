@@ -190,8 +190,7 @@ reaches outside the requesting user's course.
 
 | `pose_task`
 | Topic-level
-| Marks a task in the reply with its gradability tier. For Tier B
-  the frontend shows "show solution, then rate yourself"; the rating
-  becomes a structured message in the transcript. Finalization takes
-  the self-reported signals from these.
+| Marks a task in the reply with its gradability tier; the chat shows
+  the task and its tier. Finalization tells assessed from
+  self-reported signals by it.
 |===

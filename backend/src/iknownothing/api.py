@@ -1,4 +1,4 @@
-"""The HTTP API: courses, course files, and chats.
+"""The HTTP API: courses, course files, and chats; serves the built frontend from `IKN_FRONTEND_DIR`.
 
 Without accounts yet, every request is served for the user named by `IKN_USER`.
 """
@@ -11,6 +11,7 @@ from collections.abc import AsyncIterator
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from fastapi.responses import PlainTextResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from iknownothing.ai_client import AIClient, AIError
@@ -176,3 +177,7 @@ def finalize_chat(slug: str, body: FinalizeRequest, tasks: BackgroundTasks,
         raise HTTPException(404, str(e))
     if body.transcript:
         tasks.add_task(_finalize, store, slug, body.transcript)
+
+
+if settings.frontend_dir:
+    app.mount("/", StaticFiles(directory=settings.frontend_dir, html=True), name="frontend")
