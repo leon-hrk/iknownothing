@@ -58,13 +58,16 @@ thing happened. Say *what* changed. Do not explain, justify, or
 summarise the discussion that led to it.
 
 ```
-Add vision, init arc42
+docs: add vision, init arc42
 
 - VISION.md: product vision, ingestion pipeline, UI sketch
 - docs/arc42: chapter scaffold (AsciiDoc + PlantUML)
 ```
 
-- Imperative mood in the subject line, no trailing period.
+- The subject starts with the type of change: `feat:`, `fix:`,
+  `docs:`, `refactor:`, `test:`, or `chore:`.
+- Imperative mood in the subject line, lowercase after the type, no
+  trailing period.
 - Bullets name the substance of the change, not every file touched.
   Housekeeping (`.gitignore`, formatting, renames) gets no line.
 - No essays, no "Context/Decision/Consequences" blocks, no restating
