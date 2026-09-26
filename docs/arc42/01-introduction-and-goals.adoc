@@ -162,10 +162,11 @@ answers where the student stands and what to work on next; to work on a topic, t
 
 *Topic-level chat* - the actual tutoring, opened by clicking a topic.
 
-Exactly one chat is open at a time. Clicking a topic or the course
-opens a new chat and ends the current one; closing the browser tab
-ends it too. Since chats are not stored, the student confirms before
-a chat with messages in it is ended by opening another one.
+The course and every topic have at most one open chat each, stored
+until the student ends the session. Clicking a topic or the course
+shows its open chat; switching between chats, reloading, or closing
+the browser tab ends nothing. A session ends only when the student
+chooses *End session* and confirms; its chat is then cleared.
 
 * Context loaded into a topic-level session:
 ** The topic's artifact (`topics/<topic>/topic.md`)
@@ -188,8 +189,8 @@ a chat with messages in it is ended by opening another one.
 * *Language*: the tutor responds in the language of the course
   materials, detected during ingestion - the language the exam is
   written in. It is not configurable.
-* *Chats are not stored.* A chat exists in the browser while it is
-  open. What lasts from it is written to `progress.md` and
+* *Only open chats are stored.* A chat is kept until its session
+  ends. What lasts from it is written to `progress.md` and
   `cheatsheet.md`.
 
 ==== Living Artifacts
@@ -204,8 +205,8 @@ a chat with messages in it is ended by opening another one.
   (Tier A) and self-reported ones (Tier B) are kept distinct - a
   student's self-rating is useful but is not evidence, and the tutor
   does not treat it as such.
-* *Finalization*: whenever a topic-level chat ends, the topic's
-  `progress.md` is updated from the chat. Every new session starts
+* *Finalization*: whenever a topic-level session ends, the topic's
+  `progress.md` is updated from its chat. Every new session starts
   informed about the student's current level.
 
 ==== User Interface
@@ -250,14 +251,15 @@ interface - they open a course and ask a question.
   is red for high, orange for medium, and grey for low priority.
   Clicking one opens a new
   topic chat; expanding it lists the files of its topic directory.
-* Clicking the course or a topic while a chat with messages is open
-  first shows a warning that the current chat will be lost; the new
-  chat opens only once the student confirms.
+* The title line of the open chat holds, on the right, its token
+  usage and the *End session* button. The button asks for
+  confirmation, then ends the session: for a topic, `progress.md` is
+  updated, and the chat is cleared.
 * The *main area* is an ordinary chat. Planning, tutoring, and
   quizzing all happen there.
 * Token usage is shown as input (↑) tokens, cached input included and
   the cached share named, output (↓) tokens, and the approximate cost
-  in euros: in the title line of the open chat, and on three lines in
+  in euros: in the title line for the open session, and on three lines in
   an expanded topic for all its chats and finalizations and in an
   expanded course for the whole course, its course-level chats and
   all its topics together.

@@ -37,11 +37,12 @@ function Turn({ message }: { message: Message }) {
   );
 }
 
-export default function Chat({ open, update, onCheatsheet, onUsage }: {
+export default function Chat({ open, update, onCheatsheet, onUsage, onBusy }: {
   open: OpenChat;
   update: (transcript: Message[]) => void;
   onCheatsheet: () => void;
   onUsage: (usage: Usage) => void;
+  onBusy: (busy: boolean) => void;
 }) {
   const [input, setInput] = useState("");
   const [live, setLive] = useState<Part[] | null>(null);
@@ -50,6 +51,7 @@ export default function Chat({ open, update, onCheatsheet, onUsage }: {
   const end = useRef<HTMLDivElement>(null);
 
   useEffect(() => () => abort.current?.abort(), []);
+  useEffect(() => onBusy(!!live), [live, onBusy]);
   useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [open.transcript, live]);
 
   async function send(text: string) {

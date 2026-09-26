@@ -1,11 +1,11 @@
-"""Courses: a user's courses and their status, and the operator's course commands."""
+"""Courses: a user's courses and their status, the operator's course commands, usage, and open chats."""
 
 import json
 from pathlib import Path
 
 from iknownothing.course_store import DOC_TYPES, CourseStore
 
-STUDENT_STATE = ("cheatsheet.md", "progress.md", "usage.json")
+STUDENT_STATE = ("cheatsheet.md", "progress.md", "usage.json", "chat.json")
 
 
 class CourseError(Exception):
@@ -72,3 +72,30 @@ async def add_usage(store: CourseStore, directory: str, tokens: dict[str, float]
         return json.dumps({k: total[k] + tokens[k] for k in total}) + "\n"
 
     await store.update_text(_usage_file(directory), change)
+
+
+CHAT = "chat.json"
+
+
+def _chat_file(directory: str) -> str:
+    return f"{directory}/{CHAT}" if directory else CHAT
+
+
+def chat(store: CourseStore, directory: str = "") -> dict:
+    """The open chat of a topic directory, or the course-level chat for `""`: its transcript and usage."""
+    rel = _chat_file(directory)
+    return {"transcript": [], "usage": _NO_USAGE} | (store.read_json(rel) if store.exists(rel) else {})
+
+
+def save_chat(store: CourseStore, directory: str, transcript: list[dict], tokens: dict[str, float]) -> None:
+    """Stores the transcript and adds `tokens` to the open chat's usage."""
+    total = chat(store, directory)["usage"]
+    store.write_json(_chat_file(directory), {"transcript": transcript,
+                                             "usage": {k: total[k] + tokens[k] for k in total}})
+
+
+def end_chat(store: CourseStore, directory: str = "") -> list[dict]:
+    """Removes the open chat; returns its transcript."""
+    transcript = chat(store, directory)["transcript"]
+    store.delete(_chat_file(directory))
+    return transcript

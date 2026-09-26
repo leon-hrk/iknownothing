@@ -57,7 +57,7 @@ Decision::
 The operator ingests a course with a command of the application
 image, which runs the pipeline in its own process. Finalization runs
 as a background task of the backend process after the response to
-the finalization request.
+the request that ends the session.
 
 Consequences::
 There is no worker service and no job queue to deploy. An ingestion blocks the operator's terminal

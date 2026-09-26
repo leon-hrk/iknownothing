@@ -69,12 +69,30 @@ def test_chat_streams_reply(client, store):  # noqa: F811
     assert r.status_code == 422
 
 
-def test_finalize(client, store):  # noqa: F811
-    transcript = [{"role": "user", "content": "quiz me"}, {"role": "assistant", "content": "Draw it."}]
-    r = client.post("/api/courses/control/topics/laplace/finalize", json={"transcript": transcript})
+def test_chat_is_stored_until_ended(client, store):  # noqa: F811
+    empty = {"transcript": [], "usage": {"input": 0, "cached": 0, "output": 0, "eur": 0.0}}
+    assert client.get("/api/courses/control/chat", params={"topic": "laplace"}).json() == empty
+    transcript = [{"role": "user", "content": "quiz me"}]
+    messages = events(client.post("/api/courses/control/chat", json={"topic": "laplace", "transcript": transcript}))[-1][1]
+    client.post("/api/courses/control/chat", json={"topic": "laplace", "transcript": [*transcript, *messages, *transcript]})
+    stored = client.get("/api/courses/control/chat", params={"topic": "laplace"}).json()
+    assert len(stored["transcript"]) == 8
+    assert stored["usage"] == {"input": 200, "cached": 160, "output": 20, "eur": 1.0}
+    assert client.get("/api/courses/control/chat").json() == empty
+    assert client.get("/api/courses/control/chat", params={"topic": "nope"}).status_code == 404
+
+    r = client.delete("/api/courses/control/chat", params={"topic": "laplace"})
     assert r.status_code == 202
     assert store.read_text("topics/laplace/progress.md") == "# Progress\n"
-    assert store.read_json("topics/laplace/usage.json") == {"input": 100, "cached": 80, "output": 10, "eur": 0.5}
+    assert client.get("/api/courses/control/chat", params={"topic": "laplace"}).json() == empty
+
+
+def test_ending_an_empty_or_course_chat_does_not_finalize(client, store):  # noqa: F811
+    client.post("/api/courses/control/chat", json={"topic": None, "transcript": [{"role": "user", "content": "hi"}]})
+    assert client.delete("/api/courses/control/chat").status_code == 202
+    assert client.delete("/api/courses/control/chat", params={"topic": "laplace"}).status_code == 202
+    assert not store.exists("chat.json")
+    assert not store.exists("topics/laplace/progress.md")
 
 
 def test_chat_heartbeat(client, monkeypatch):

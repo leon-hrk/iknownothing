@@ -80,6 +80,9 @@ class CourseStore:
             await asyncio.to_thread(self.write_text, rel, new)
             return new
 
+    def delete(self, rel: str) -> None:
+        self.path(rel).unlink(missing_ok=True)
+
     def sources(self, doc_type: str) -> list[str]:
         """Source PDFs of one document type, in file name order."""
         if doc_type not in DOC_TYPES:

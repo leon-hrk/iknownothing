@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
-  addUsage, chooseUser, type Course, type CourseSummary, currentUser, finalize, getCourse, listCourses, listUsers,
-  type Message, NO_USAGE, readFile, UNAUTHORIZED, type Usage,
+  addUsage, chooseUser, type Course, type CourseSummary, currentUser, endChat, getChat, getCourse, listCourses,
+  listUsers, type Message, NO_USAGE, readFile, UNAUTHORIZED, type Usage,
 } from "./api";
 import Chat, { type OpenChat } from "./Chat";
 import Markdown from "./Markdown";
@@ -13,10 +13,6 @@ type Doc = { course: string; path: string; title: string };
 
 
 let nextId = 1;
-
-function endChat(chat: OpenChat | null, keepalive = false) {
-  if (chat?.topic && chat.transcript.length) finalize(chat.course, chat.topic, chat.transcript, keepalive);
-}
 
 const CHEATSHEET = "cheatsheet.md";
 
@@ -41,8 +37,8 @@ function Document({ doc, version }: { doc: Doc; version: number }) {
   );
 }
 
-/** Asks before the open chat is discarded; chats are not stored. */
-function DiscardDialog({ onDiscard, onCancel }: { onDiscard: () => void; onCancel: () => void }) {
+/** Asks before the open chat is ended. */
+function EndDialog({ topic, onEnd, onCancel }: { topic: boolean; onEnd: () => void; onCancel: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
     document.addEventListener("keydown", onKey);
@@ -50,12 +46,15 @@ function DiscardDialog({ onDiscard, onCancel }: { onDiscard: () => void; onCance
   }, [onCancel]);
   return (
     <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-      <div className="dialog" role="alertdialog" aria-labelledby="discard-title">
-        <h2 id="discard-title">Discard this chat?</h2>
-        <p>Chats are not stored. Your cheatsheet and progress are kept.</p>
+      <div className="dialog" role="alertdialog" aria-labelledby="end-title">
+        <h2 id="end-title">End this session?</h2>
+        <p>
+          {topic ? "Your progress is updated from this chat, then the chat is cleared." : "The chat is cleared."}
+          {" "}Your cheatsheet is kept.
+        </p>
         <div className="actions">
           <button onClick={onCancel}>Keep chatting</button>
-          <button className="primary" autoFocus onClick={onDiscard}>Discard</button>
+          <button className="primary" autoFocus onClick={onEnd}>End session</button>
         </div>
       </div>
     </div>
@@ -116,17 +115,13 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
   const [cheatsheetVersion, setCheatsheetVersion] = useState(0);
   const [sidebar, setSidebar] = useState(true);
   const [panel, setPanel] = useState(false);
-  const [discard, setDiscard] = useState<(() => void) | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [ending, setEnding] = useState(false);
   const chatRef = useRef(chat);
   chatRef.current = chat;
+  const opening = useRef(0);
 
   useEffect(() => { if (user) listCourses().then(setCourses); }, [user]);
-
-  useEffect(() => {
-    const onHide = () => endChat(chatRef.current, true);
-    window.addEventListener("pagehide", onHide);
-    return () => window.removeEventListener("pagehide", onHide);
-  }, []);
 
   const load = useCallback((course: string) => {
     getCourse(course).then((c) => setDetails((d) => ({ ...d, [course]: c })));
@@ -140,22 +135,26 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
     });
   }
 
-  /** Ends the open chat and runs `next`; asks first if the chat has messages. */
-  function leaveChat(next: () => void) {
-    const run = () => { endChat(chat); next(); };
-    if (chat?.transcript.length) setDiscard(() => run);
-    else run();
-  }
-
   function switchUser(name: string) {
-    leaveChat(() => chooseUser(name).then(() => onSwitch(name)));
+    chooseUser(name).then(() => onSwitch(name));
   }
 
   function openChat(course: string, topic: string | null, title: string) {
-    leaveChat(() => {
-      setChat({ id: nextId++, course, topic, title, transcript: [], usage: NO_USAGE });
+    const id = opening.current = nextId++;
+    getChat(course, topic).then(({ transcript, usage }) => {
+      if (opening.current !== id) return;
+      setChat({ id, course, topic, title, transcript, usage });
       setExpanded((s) => new Set(s).add(course));
       load(course);
+    });
+  }
+
+  function end() {
+    setEnding(false);
+    if (!chat) return;
+    const { id, course, topic } = chat;
+    endChat(course, topic).then(() => {
+      setChat((c) => (c?.id === id ? { ...c, id: nextId++, transcript: [], usage: NO_USAGE } : c));
     });
   }
 
@@ -258,8 +257,16 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
         <header>
           <span className="title" title={chat?.title}>{chat?.title ?? ""}</span>
           {chat && <Tokens usage={chat.usage} />}
+          {chat && (
+            <button className="end" disabled={busy || !chat.transcript.length} onClick={() => setEnding(true)}>
+              End session
+            </button>
+          )}
         </header>
-        {chat && <Chat key={chat.id} open={chat} update={(t) => update(chat.id, t)} onCheatsheet={onCheatsheet} onUsage={(u) => onUsage(chat.id, u)} />}
+        {chat && (
+          <Chat key={chat.id} open={chat} update={(t) => update(chat.id, t)} onCheatsheet={onCheatsheet}
+            onUsage={(u) => onUsage(chat.id, u)} onBusy={setBusy} />
+        )}
         {!chat && <p className="hint">{user ? "Open a course to start." : "Choose a user at the bottom left."}</p>}
       </main>
       {panel && doc && <Document doc={doc} version={doc.path === CHEATSHEET ? cheatsheetVersion : 0} />}
@@ -268,9 +275,7 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
           {panel ? "›" : "‹"}
         </button>
       )}
-      {discard && (
-        <DiscardDialog onDiscard={() => { setDiscard(null); discard(); }} onCancel={() => setDiscard(null)} />
-      )}
+      {ending && chat && <EndDialog topic={chat.topic !== null} onEnd={end} onCancel={() => setEnding(false)} />}
     </div>
   );
 }

@@ -112,6 +112,31 @@ def read_file(rel: str, store: CourseStore = Depends(course_store)) -> str:
     return store.read_text(rel)
 
 
+def _directory(store: CourseStore, topic: str | None) -> str:
+    """The directory of a topic-level chat, or `""` for the course-level chat."""
+    if topic is None:
+        return ""
+    try:
+        return topic_entry(store, topic)["dir"]
+    except TutorError as e:
+        raise HTTPException(404, str(e))
+
+
+@app.get("/api/courses/{course}/chat")
+def get_chat(topic: str | None = None, store: CourseStore = Depends(ready_store)) -> dict:
+    """The open chat of a topic, or the course-level chat without `topic`: its transcript and usage."""
+    return courses.chat(store, _directory(store, topic))
+
+
+@app.delete("/api/courses/{course}/chat", status_code=202)
+def end_chat(tasks: BackgroundTasks, topic: str | None = None,
+             store: CourseStore = Depends(ready_store)) -> None:
+    """Ends the open chat; a topic's progress.md is updated from its transcript in the background."""
+    transcript = courses.end_chat(store, _directory(store, topic))
+    if topic is not None and transcript:
+        tasks.add_task(_finalize, store, topic, transcript)
+
+
 class ChatRequest(BaseModel):
     topic: str | None = None
     transcript: list[dict]
@@ -123,7 +148,7 @@ def _sse(event: str, data: object) -> str:
 
 @app.post("/api/courses/{course}/chat")
 async def chat(body: ChatRequest, store: CourseStore = Depends(ready_store)) -> StreamingResponse:
-    """Streams the reply to a transcript that ends with the student's message.
+    """Streams the reply to a transcript that ends with the student's message; stores the chat with the reply.
 
     Events: `text`, `cheatsheet`, and `task` while the reply arrives, then `usage` with the
     tokens of the reply and `messages` with the messages to append to the transcript, or `error`. While the model thinks, a comment every
@@ -131,12 +156,7 @@ async def chat(body: ChatRequest, store: CourseStore = Depends(ready_store)) -> 
     """
     if not body.transcript or body.transcript[-1].get("role") != "user":
         raise HTTPException(422, "the transcript must end with the student's message")
-    directory = ""
-    if body.topic is not None:
-        try:
-            directory = topic_entry(store, body.topic)["dir"]
-        except TutorError as e:
-            raise HTTPException(404, str(e))
+    directory = _directory(store, body.topic)
     transcript = body.transcript
     start = len(transcript)
     language = store.read_json(RESULT)["language"]
@@ -146,6 +166,7 @@ async def chat(body: ChatRequest, store: CourseStore = Depends(ready_store)) -> 
         try:
             async for event in reply(store, ai, body.topic, language, transcript):
                 await queue.put(event)
+            await asyncio.to_thread(courses.save_chat, store, directory, transcript, ai.tokens())
             await queue.put(("usage", ai.tokens()))
             await queue.put(("messages", transcript[start:]))
         except (TutorError, AIError) as e:
@@ -185,10 +206,6 @@ async def _add_usage(store: CourseStore, directory: str, ai: AIClient) -> None:
         log.exception("recording usage of %s/%s failed", store.user, store.course)
 
 
-class FinalizeRequest(BaseModel):
-    transcript: list[dict]
-
-
 async def _finalize(store: CourseStore, slug: str, transcript: list[dict]) -> None:
     ai = AIClient(settings, store.user, store.course)
     try:
@@ -199,18 +216,6 @@ async def _finalize(store: CourseStore, slug: str, transcript: list[dict]) -> No
     finally:
         await _add_usage(store, topic_entry(store, slug)["dir"], ai)
         await ai.close()
-
-
-@app.post("/api/courses/{course}/topics/{slug}/finalize", status_code=202)
-def finalize_chat(slug: str, body: FinalizeRequest, tasks: BackgroundTasks,
-                  store: CourseStore = Depends(ready_store)) -> None:
-    """Ends a topic-level chat: its topic's progress.md is updated from the transcript in the background."""
-    try:
-        topic_entry(store, slug)
-    except TutorError as e:
-        raise HTTPException(404, str(e))
-    if body.transcript:
-        tasks.add_task(_finalize, store, slug, body.transcript)
 
 
 if settings.frontend_dir:

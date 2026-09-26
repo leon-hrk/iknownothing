@@ -61,8 +61,9 @@ call. A course that is not ingested is not copied.
 include::diagrams/runtime-chat-message.puml[]
 ....
 
-The chat lives in the frontend. The backend keeps no chat state
-between requests.
+The frontend holds the transcript and sends it with every message;
+the backend stores it after every reply, so an open chat survives a
+reload. Opening a chat loads its stored transcript.
 
 . The frontend posts the chat's scope (the course or one topic), its
   transcript so far, and the student's message.
@@ -75,6 +76,8 @@ between requests.
   reply with the tool result in a follow-up request. Tools with a
   visible effect emit their own event: cheatsheet changed, task
   posed.
+. Tutor stores the transcript with the reply and the session's token
+  usage in the scope's `chat.json`.
 . The frontend appends the reply and its tool calls to the
   transcript.
 
@@ -86,13 +89,13 @@ between requests.
 include::diagrams/runtime-finalization.puml[]
 ....
 
-Only topic-level chats are finalized, and only once the student has
-written in them.
+Only topic-level sessions are finalized, and only once the student
+has written in them.
 
-. A topic-level chat ends when the student opens another chat or
-  chooses another user and confirms the warning, or closes the tab. The frontend posts its transcript - on tab close as
-  a `keepalive` request. Tutor answers at once and finalizes in a
-  background task of the backend process.
+. A session ends when the student chooses *End session* and confirms.
+  The frontend asks the backend to end the scope's chat. Tutor removes
+  its `chat.json`, answers at once, and finalizes the removed
+  transcript in a background task of the backend process.
 . Tutor sends one request with the transcript, the topic's
   `topic.md`, and its current `progress.md`, and receives the updated
   progress, with assessed and self-reported signals kept apart.

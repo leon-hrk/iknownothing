@@ -7,7 +7,8 @@ participant "Tutor\n(Backend)" as tutor
 participant "Course Store" as store
 participant "AI Client" as ai
 
-frontend -> tutor : POST transcript\n(another chat opened or tab closed)
+frontend -> tutor : end chat\n(End session)
+tutor -> store : read and remove chat.json
 tutor --> frontend : 202 Accepted
 
 group background task

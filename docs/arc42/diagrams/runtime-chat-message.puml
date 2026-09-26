@@ -21,6 +21,7 @@ loop until the reply has no tool call
   end
 end
 
+tutor -> store : write chat.json
 tutor --> frontend : SSE end
 frontend -> frontend : append reply to transcript
 @enduml

@@ -95,21 +95,14 @@ export async function* chat(
   }
 }
 
-/** What finalization reads of a transcript: text and tool calls, without thinking and tool results. */
-function forFinalization(transcript: Message[]): Message[] {
-  return transcript.flatMap((m) => {
-    if (typeof m.content === "string") return [m];
-    const content = m.content.filter((b) => b.type === "text" || b.type === "tool_use");
-    return content.length ? [{ role: m.role, content }] : [];
-  });
-}
+const chatUrl = (course: string, topic: string | null) =>
+  `${base(course)}/chat${topic === null ? "" : `?topic=${encodeURIComponent(topic)}`}`;
 
-/** Ends a topic-level chat; `keepalive` lets the request outlive a closing tab, for bodies up to 64 KB. */
-export function finalize(course: string, topic: string, transcript: Message[], keepalive = false): void {
-  fetch(`${base(course)}/topics/${encodeURIComponent(topic)}/finalize`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ transcript: forFinalization(transcript) }),
-    keepalive,
-  }).catch(() => {});
+/** The open chat of a topic, or the course-level chat for `null`. */
+export const getChat = (course: string, topic: string | null) =>
+  json<{ transcript: Message[]; usage: Usage }>(chatUrl(course, topic));
+
+/** Ends the open chat; for a topic, its progress is updated from the chat in the background. */
+export async function endChat(course: string, topic: string | null): Promise<void> {
+  await request(chatUrl(course, topic), { method: "DELETE" });
 }

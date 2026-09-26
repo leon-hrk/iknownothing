@@ -49,7 +49,7 @@ Anthropic API.
 | Browser, HTTP
 | Web UI over a JSON HTTP API. A chat message is a `POST` carrying
   the chat's transcript, whose response streams the reply and its tool events as Server-Sent
-  Events.
+  Events. Open chats are loaded and ended with their own requests.
 
 | Operator
 | Docker host

@@ -41,8 +41,7 @@
 
 | Finalization
 | Updating a topic's `progress.md` from a topic-level chat. Happens
-  when the chat ends: the student opens another chat, chooses another
-  user, or closes the tab.
+  when the student ends the session.
 
 | Gradability tier
 | The class of a task by how the tutor can handle it. *Tier A*: posed

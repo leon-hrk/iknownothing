@@ -30,7 +30,7 @@ curl -b cookies -N localhost:8000/api/courses/control-theory/chat \
     -d '{"topic": null, "transcript": [{"role": "user", "content": "Where do I stand?"}]}'
 ```
 
-Topic-level chats are finalized in the backend process.
+Open chats are stored per course and topic; ending a topic-level session finalizes it in the backend process.
 
 | Endpoint | |
 |---|---|
@@ -40,5 +40,6 @@ Topic-level chats are finalized in the backend process.
 | `GET /api/courses` | the user's courses |
 | `GET /api/courses/<course>` | topics in priority order, with their Markdown files and token usage; token usage of the course-level chats. Usage: `input` (cached included), `cached`, `output` tokens, and approximate `eur` |
 | `GET /api/courses/<course>/files/<path>` | one Markdown file |
-| `POST /api/courses/<course>/chat` | streams the reply as Server-Sent Events: `text`, `cheatsheet`, `task`, then `usage` with the reply's tokens and `messages` to append to the transcript, or `error`; a comment every 10 s while the model thinks |
-| `POST /api/courses/<course>/topics/<slug>/finalize` | ends a topic-level chat; updates `progress.md` in the background |
+| `POST /api/courses/<course>/chat` | stores the chat with the reply; streams the reply as Server-Sent Events: `text`, `cheatsheet`, `task`, then `usage` with the reply's tokens and `messages` to append to the transcript, or `error`; a comment every 10 s while the model thinks |
+| `GET /api/courses/<course>/chat?topic=<slug>` | the open chat of a topic, or without `topic` of the course: `transcript` and `usage` |
+| `DELETE /api/courses/<course>/chat?topic=<slug>` | ends the open chat; for a topic, updates `progress.md` in the background |

@@ -53,11 +53,17 @@
   limit on the key caps the cost. Per-user keys (chapter 1, out of scope) remove
   the risk.
 
-| Finalization lost on tab close or restart
-| On tab close the transcript is sent as a `keepalive` request, which
-  browsers cap at 64 KiB and may drop. A long chat or a killed
-  browser loses its progress update, and so does a finalization
-  running when the backend stops (<<adr-operator-ingestion>>).
+| Finalization lost on restart
+| The chat is removed when its session ends, before finalization
+  runs. A finalization running when the backend stops
+  (<<adr-operator-ingestion>>) loses its progress update.
 | Accepted for v0. The cheatsheet is unaffected; it is updated during
   the chat.
+
+| Sessions left open
+| Progress is only updated when the student ends a session. A session
+  never ended leaves `progress.md` behind, and its transcript grows
+  with every message, and with it the input tokens of every request.
+| Accepted for v0. The token usage of the open session is shown next
+  to *End session*.
 |===

@@ -94,9 +94,12 @@ header { display: flex; align-items: center; min-height: 42px; padding: 10px 16p
 .composer button { border: 1px solid var(--line); border-radius: 8px; padding: 4px 12px; color: var(--text); }
 
 .composer { display: flex; gap: 8px; padding: 12px max(16px, calc(50% - 380px)) 16px; }
-main > header { display: flex; align-items: baseline; gap: 16px; }
+main > header { display: flex; align-items: center; gap: 16px; }
 header .title { display: block; flex: 1; min-width: 0; overflow: hidden; }
 main > header .tokens { font-weight: 400; }
+main > header .end { font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--error); border: 1px solid var(--error); border-radius: 6px; padding: 0 10px; }
+main > header .end:hover:not(:disabled) { background: var(--error); color: var(--bg); }
+main > header .end:disabled { opacity: 0.4; cursor: default; }
 .tokens.stacked { display: flex; flex-direction: column; line-height: 1.5; }
 .tokens { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 li.usage { padding: 3px 6px 3px 26px; }
