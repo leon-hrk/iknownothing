@@ -246,7 +246,9 @@ interface - they open a course and ask a question.
 
 * *Courses* are the top level. Clicking one opens a new course-level
   chat and reveals everything that belongs to it.
-* *Topics* are sorted by exam priority. Clicking one opens a new
+* *Topics* are sorted by exam priority; the arrow in front of a topic
+  is red for high, orange for medium, and grey for low priority.
+  Clicking one opens a new
   topic chat; expanding it lists the files of its topic directory.
 * Clicking the course or a topic while a chat with messages is open
   first shows a warning that the current chat will be lost; the new

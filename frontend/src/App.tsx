@@ -31,7 +31,7 @@ function Document({ doc, version }: { doc: Doc; version: number }) {
   }, [doc, version]);
   return (
     <aside className="document">
-      <header title={doc.title}>{doc.title}</header>
+      <header><span className="title" title={doc.title}>{doc.title}</span></header>
       <div className="reader">
         {text === null ? <div className="pending">…</div>
           : text.trim() ? <Markdown text={text} />
@@ -225,9 +225,10 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
                       return (
                         <li key={t.slug}>
                           <div className={topicActive ? "row active" : "row"}>
-                            <button className="caret" onClick={() => toggle(key)}>{expanded.has(key) ? "▾" : "▸"}</button>
+                            <button className={`caret ${t.priority}`} title={`${t.priority} priority`} onClick={() => toggle(key)}>
+                              {expanded.has(key) ? "▾" : "▸"}
+                            </button>
                             <button title={t.name} onClick={() => openChat(c.name, t.slug, `${c.name} · ${t.name}`)}>{t.name}</button>
-                            <span className={`priority ${t.priority}`}>{t.priority}</span>
                           </div>
                           {expanded.has(key) && (
                             <ul>
