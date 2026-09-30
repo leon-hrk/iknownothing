@@ -11,6 +11,33 @@ import Tokens from "./Tokens";
 /** A Markdown file of a course, shown in the document column. */
 type Doc = { course: string; path: string; title: string };
 
+/** What a reload restores, remembered per user in the browser. */
+type View = {
+  chat: { course: string; topic: string | null; title: string } | null;
+  doc: Doc | null;
+  expanded: string[];
+  sidebar: boolean;
+  panel: boolean;
+};
+
+const viewKey = (user: string) => `ikn-view:${user}`;
+
+function loadView(user: string | null): View | null {
+  if (!user) return null;
+  try {
+    return JSON.parse(localStorage.getItem(viewKey(user)) ?? "null");
+  } catch {
+    return null;
+  }
+}
+
+function saveView(user: string, view: View) {
+  try {
+    localStorage.setItem(viewKey(user), JSON.stringify(view));
+  } catch {
+    // the view is then not restored after a reload
+  }
+}
 
 let nextId = 1;
 
@@ -107,25 +134,43 @@ export default function App() {
 }
 
 function Workspace({ user, users, onSwitch }: { user: string | null; users: string[]; onSwitch: (name: string) => void }) {
+  const [saved] = useState(() => loadView(user));
   const [courses, setCourses] = useState<CourseSummary[]>([]);
   const [details, setDetails] = useState<Record<string, Course>>({});
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(saved?.expanded));
   const [chat, setChat] = useState<OpenChat | null>(null);
-  const [doc, setDoc] = useState<Doc | null>(null);
+  const [doc, setDoc] = useState<Doc | null>(saved?.doc ?? null);
   const [cheatsheetVersion, setCheatsheetVersion] = useState(0);
-  const [sidebar, setSidebar] = useState(true);
-  const [panel, setPanel] = useState(false);
+  const [sidebar, setSidebar] = useState(saved?.sidebar ?? true);
+  const [panel, setPanel] = useState(saved?.panel ?? false);
   const [busy, setBusy] = useState(false);
   const [ending, setEnding] = useState(false);
   const chatRef = useRef(chat);
   chatRef.current = chat;
   const opening = useRef(0);
-
-  useEffect(() => { if (user) listCourses().then(setCourses); }, [user]);
+  const restoring = useRef(saved?.chat ?? null);
 
   const load = useCallback((course: string) => {
     getCourse(course).then((c) => setDetails((d) => ({ ...d, [course]: c })));
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    listCourses().then((cs) => {
+      setCourses(cs);
+      for (const c of cs) if (saved?.expanded.includes(c.name)) load(c.name);
+    });
+    if (saved?.chat) {
+      openChat(saved.chat.course, saved.chat.topic, saved.chat.title);
+      restoring.current = saved.chat;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const open = chat ? { course: chat.course, topic: chat.topic, title: chat.title } : restoring.current;
+    saveView(user, { chat: open, doc, expanded: [...expanded], sidebar, panel });
+  }, [user, chat?.course, chat?.topic, chat?.title, doc, expanded, sidebar, panel]);
 
   function toggle(key: string) {
     setExpanded((s) => {
@@ -141,6 +186,7 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
 
   function openChat(course: string, topic: string | null, title: string) {
     const id = opening.current = nextId++;
+    restoring.current = null;
     getChat(course, topic).then(({ transcript, usage }) => {
       if (opening.current !== id) return;
       setChat({ id, course, topic, title, transcript, usage });
