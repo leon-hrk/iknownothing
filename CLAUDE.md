@@ -74,5 +74,7 @@ docs: add vision, init arc42
   the diff in prose.
 - No trailers. In particular no `Co-Authored-By` for AI assistance —
   the commit is the author's work regardless of what helped write it.
+  The one exception: a commit that resolves an issue ends with
+  `closes #<n>`, lowercase.
 - If a change feels like it needs a long body, it needs an arc42
   chapter 9 entry instead.

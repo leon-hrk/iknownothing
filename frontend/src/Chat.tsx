@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 import { type Block, chat, type Message, type Usage } from "./api";
 import Markdown from "./Markdown";
@@ -21,7 +21,7 @@ function note(b: Block): string | null {
   return null;
 }
 
-function Turn({ message }: { message: Message }) {
+const Turn = memo(function Turn({ message }: { message: Message }) {
   if (message.role === "user") {
     const text = blocks(message.content).filter((b) => b.type === "text").map((b) => b.text as string).join("\n");
     return text ? <div className="user">{text}</div> : null;
@@ -35,7 +35,7 @@ function Turn({ message }: { message: Message }) {
       })}
     </>
   );
-}
+});
 
 export default function Chat({ open, update, onCheatsheet, onUsage, onBusy }: {
   open: OpenChat;
