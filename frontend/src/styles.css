@@ -88,7 +88,10 @@ header { display: flex; align-items: center; min-height: 42px; padding: 10px 16p
 .user { background: var(--user); border-radius: 12px; padding: 8px 12px; margin: 16px 0 16px auto; width: fit-content; max-width: 80%; white-space: pre-wrap; }
 .note { color: var(--muted); font-size: 13px; margin: 6px 0; }
 .note::before { content: "◆ "; }
-.pending { color: var(--muted); }
+.pending { color: var(--muted); font-size: 13px; margin: 6px 0; animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.4; } }
+.thinking { color: var(--muted); font-size: 13px; margin: 6px 0; border-left: 2px solid var(--line); padding-left: 10px; }
+.thinking summary { cursor: pointer; }
 .error { color: var(--error); margin: 8px 0; }
 
 .composer button { border: 1px solid var(--line); border-radius: 8px; padding: 4px 12px; color: var(--text); }

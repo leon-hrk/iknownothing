@@ -57,7 +57,7 @@ TOPIC_TOOLS = [
 ]
 COURSE_TOOLS = TOPIC_TOOLS[:1]
 
-_POSED = {
+POSED = {
     "A": "Posed as Tier A. Grade the student's answer.",
     "B": (
         "Posed as Tier B. Do not grade the student's attempt. When they ask for it, show the reference "
@@ -168,7 +168,7 @@ async def _execute(store: CourseStore, block: Any) -> tuple[dict, tuple[str, Any
         return ({"type": "tool_result", "tool_use_id": block.id, "content": "Cheatsheet updated."},
                 ("cheatsheet", args))
     if block.name == "pose_task":
-        return ({"type": "tool_result", "tool_use_id": block.id, "content": _POSED[args["tier"]]},
+        return ({"type": "tool_result", "tool_use_id": block.id, "content": POSED[args["tier"]]},
                 ("task", args))
     return {"type": "tool_result", "tool_use_id": block.id, "is_error": True,
             "content": f"unknown tool {block.name!r}"}, None
@@ -181,7 +181,8 @@ async def reply(
 
     `slug` names the topic of a topic-level chat; `None` makes it a course-level chat.
 
-    Yields `("text", chunk)`, `("cheatsheet", entry)`, and `("task", task)`, and appends the reply,
+    Yields `("thinking", chunk)`, `("text", chunk)`, `("tool", name)` when a tool call starts,
+    `("cheatsheet", entry)`, and `("task", task)`, and appends the reply,
     tool calls and results included, to `transcript`. On failure the transcript is left as it was.
     """
     start = len(transcript)
@@ -193,10 +194,10 @@ async def reply(
         for _ in range(MAX_TOOL_ROUNDS):
             msg = None
             async for kind, value in ai.stream_chat(request_type, _with_context(ctx, transcript), tools):
-                if kind == "text":
-                    yield "text", value
-                else:
+                if kind == "message":
                     msg = value
+                else:
+                    yield kind, value
             if msg.stop_reason == "refusal":
                 raise TutorError("the model declined to answer")
             if msg.stop_reason == "max_tokens":

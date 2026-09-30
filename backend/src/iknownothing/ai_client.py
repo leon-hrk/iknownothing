@@ -75,19 +75,24 @@ class AIClient:
     async def stream_chat(
         self, request_type: str, messages: list[dict], tools: list[dict],
     ) -> AsyncIterator[tuple[str, Any]]:
-        """Streams one chat request: yields `("text", chunk)` while the reply arrives, then `("message", msg)`."""
+        """Streams one chat request: yields `("thinking", chunk)` of the thinking summary, `("text", chunk)`, and
+        `("tool", name)` when a tool call starts, while the reply arrives, then `("message", msg)`."""
         async with self._client.messages.stream(
             model=self._models[TIERS[request_type]],
             max_tokens=32000,
             system=load_prompt(request_type),
             messages=messages,
             tools=tools,
-            thinking={"type": "adaptive"},
+            thinking={"type": "adaptive", "display": "summarized"},
             cache_control={"type": "ephemeral"},
         ) as stream:
             async for event in stream:
-                if event.type == "text":
+                if event.type == "thinking":
+                    yield "thinking", event.thinking
+                elif event.type == "text":
                     yield "text", event.text
+                elif event.type == "content_block_start" and event.content_block.type == "tool_use":
+                    yield "tool", event.content_block.name
             msg = await stream.get_final_message()
         self._record_usage(request_type, msg)
         yield "message", msg

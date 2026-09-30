@@ -18,7 +18,9 @@ export type Block = { type: string; text?: string; name?: string; input?: Record
 export type Message = { role: "user" | "assistant"; content: string | Block[] };
 
 export type ChatEvent =
+  | { kind: "thinking"; data: string }
   | { kind: "text"; data: string }
+  | { kind: "tool"; data: string }
   | { kind: "cheatsheet"; data: { section: string; heading: string; body: string } }
   | { kind: "task"; data: { task: string; tier: "A" | "B" } }
   | { kind: "usage"; data: Usage }

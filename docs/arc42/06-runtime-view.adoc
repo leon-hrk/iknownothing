@@ -71,7 +71,11 @@ reload. Opening a chat loads its stored transcript.
   (chapter 1, Tutoring Sessions) - for a topic-level chat, its source
   pages first, cut out of the PDFs - and sends it with the transcript and
   the <<_chat_tools,chat tools>> through the AI Client.
-. The reply streams to the frontend as Server-Sent Events.
+. The reply streams to the frontend as Server-Sent Events: the
+  summary of the model's thinking, the text, and the start of each
+  tool call. Until the text arrives, the frontend shows the thinking
+  summary and what the model is doing (thinking, or the tool it
+  calls); afterwards the thinking stays in the chat, collapsed.
 . When the model calls a tool, Tutor executes it and continues the
   reply with the tool result in a follow-up request. Tools with a
   visible effect emit their own event: cheatsheet changed, task

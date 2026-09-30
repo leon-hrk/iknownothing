@@ -173,7 +173,7 @@ def _sse(event: str, data: object) -> str:
 async def chat(body: ChatRequest, store: CourseStore = Depends(ready_store)) -> StreamingResponse:
     """Streams the reply to a transcript that ends with the student's message; stores the chat with the reply.
 
-    Events: `text`, `cheatsheet`, and `task` while the reply arrives, then `usage` with the
+    Events: `thinking`, `text`, `tool`, `cheatsheet`, and `task` while the reply arrives, then `usage` with the
     tokens of the reply and `messages` with the messages to append to the transcript, or `error`. While the model thinks, a comment every
     `HEARTBEAT` seconds keeps the connection from being closed as idle.
     """

@@ -7,7 +7,18 @@ export type OpenChat = {
   id: number; course: string; topic: string | null; title: string; transcript: Message[]; usage: Usage;
 };
 
-type Part = { kind: "text"; text: string } | { kind: "note"; text: string };
+type Part = { kind: "thinking" | "text" | "note"; text: string };
+
+const DOING: Record<string, string> = { update_cheatsheet: "Updating cheatsheet…", pose_task: "Posing a task…" };
+
+function Thinking({ text, open }: { text: string; open: boolean }) {
+  return (
+    <details className="thinking" open={open}>
+      <summary>Thinking</summary>
+      <Markdown text={text} />
+    </details>
+  );
+}
 
 function blocks(content: string | Block[]): Block[] {
   return typeof content === "string" ? [{ type: "text", text: content }] : content;
@@ -30,6 +41,7 @@ const Turn = memo(function Turn({ message }: { message: Message }) {
     <>
       {blocks(message.content).map((b, i) => {
         if (b.type === "text") return <Markdown key={i} text={b.text as string} />;
+        if (b.type === "thinking") return b.thinking ? <Thinking key={i} text={b.thinking as string} open={false} /> : null;
         const n = note(b);
         return n ? <div key={i} className="note">{n}</div> : null;
       })}
@@ -46,6 +58,7 @@ export default function Chat({ open, update, onCheatsheet, onUsage, onBusy }: {
 }) {
   const [input, setInput] = useState("");
   const [live, setLive] = useState<Part[] | null>(null);
+  const [tool, setTool] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
   const end = useRef<HTMLDivElement>(null);
@@ -64,13 +77,17 @@ export default function Chat({ open, update, onCheatsheet, onUsage, onBusy }: {
     abort.current = new AbortController();
     try {
       for await (const e of chat(open.course, open.topic, transcript, abort.current.signal)) {
-        if (e.kind === "text") {
+        if (e.kind !== "tool") setTool(null);
+        if (e.kind === "thinking" || e.kind === "text") {
+          const kind = e.kind;
           setLive((parts) => {
             const last = parts!.at(-1);
-            return last?.kind === "text"
-              ? [...parts!.slice(0, -1), { kind: "text", text: last.text + e.data }]
-              : [...parts!, { kind: "text", text: e.data }];
+            return last?.kind === kind
+              ? [...parts!.slice(0, -1), { kind, text: last.text + e.data }]
+              : [...parts!, { kind, text: e.data }];
           });
+        } else if (e.kind === "tool") {
+          setTool(e.data);
         } else if (e.kind === "cheatsheet") {
           setLive((parts) => [...parts!, { kind: "note", text: `Cheatsheet: ${e.data.heading}` }]);
           onCheatsheet();
@@ -93,6 +110,7 @@ export default function Chat({ open, update, onCheatsheet, onUsage, onBusy }: {
       setInput(text);
       setError(err instanceof Error ? err.message : String(err));
       setLive(null);
+      setTool(null);
     }
   }
 
@@ -105,10 +123,12 @@ export default function Chat({ open, update, onCheatsheet, onUsage, onBusy }: {
           </p>
         )}
         {open.transcript.map((m, i) => <Turn key={i} message={m} />)}
-        {live?.map((p, i) => p.kind === "text"
-          ? <Markdown key={i} text={p.text} />
+        {live?.map((p, i) => p.kind === "text" ? <Markdown key={i} text={p.text} />
+          : p.kind === "thinking" ? <Thinking key={i} text={p.text} open />
           : <div key={i} className="note">{p.text}</div>)}
-        {live?.length === 0 && <div className="pending">…</div>}
+        {live && (tool || live.at(-1)?.kind !== "text") && (
+          <div className="pending">{tool ? DOING[tool] ?? `Running ${tool}…` : "Thinking…"}</div>
+        )}
         {error && <div className="error">{error}</div>}
         <div ref={end} />
       </div>

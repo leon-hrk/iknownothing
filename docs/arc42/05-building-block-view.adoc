@@ -88,9 +88,10 @@ include::diagrams/building-blocks-level2.puml[]
   With `IKN_MOCK_USER=1`, the API adds the user `mock`, whose
   courses are sample data bundled with the mock client. A mock client
   answers its chats: a message `/<name>` gets the sample reply of
-  that name, any other message the list of names. Other requests
-  fail. Its chats open as a sample chat that sends each name once,
-  and nothing of them is stored. All other users are unaffected.
+  that name, `/tools` a reply that poses a task in a tool call, any
+  other message the list of commands. Each reply starts with a
+  thinking summary. Other requests fail. Its chats open as a sample
+  chat that sends each command once, and nothing of them is stored. All other users are unaffected.
 | Prompts
 |===
 
