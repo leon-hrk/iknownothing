@@ -14,7 +14,7 @@ produces, so the chat can be tested with long, varied replies.
 
 ### Math
 
-Inline math with dollars: $F(s) = \int_0^\infty f(t)\,e^{-st}\,dt$, and with parentheses: \(a^2 + b^2 = c^2\).
+Inline math: \(F(s) = \int_0^\infty f(t)\,e^{-st}\,dt\) and \(a^2 + b^2 = c^2\).
 
 Display math with dollars:
 
@@ -30,11 +30,11 @@ Display math with brackets:
 
 ### Table
 
-| Function $f(t)$ | Transform $F(s)$ | Region |
+| Function \(f(t)\) | Transform \(F(s)\) | Region |
 |---|---|---|
-| $1$ | $\frac{1}{s}$ | $s > 0$ |
-| $e^{at}$ | $\frac{1}{s-a}$ | $s > a$ |
-| $\sin(\omega t)$ | $\frac{\omega}{s^2+\omega^2}$ | $s > 0$ |
+| \(1\) | \(\frac{1}{s}\) | \(s > 0\) |
+| \(e^{at}\) | \(\frac{1}{s-a}\) | \(s > a\) |
+| \(\sin(\omega t)\) | \(\frac{\omega}{s^2+\omega^2}\) | \(s > 0\) |
 
 ### Code
 

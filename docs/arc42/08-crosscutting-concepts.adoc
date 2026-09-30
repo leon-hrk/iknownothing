@@ -68,6 +68,11 @@ The files fall into three classes:
 The student edits no file. Every Markdown file is shown rendered and
 read-only in the UI; the PDFs are not shown.
 
+Math in Markdown is written as `+\(...\)+` inline and as `+$$...$$+` or
+`+\[...\]+` on lines of its own. A single `+$+` is text, so amounts of
+money need no escaping. The prompts of every request whose output is
+shown ask the model for this notation.
+
 ==== Cheatsheet Updates
 
 `cheatsheet.md` is written only by the tutor, during any chat of the

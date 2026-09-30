@@ -34,3 +34,4 @@ Merge the session into what was there: keep what still holds, correct
 what the session proved wrong, and drop what is no longer useful. A
 session in which the student only asked questions still says where
 they stand. Write concisely; this is a working file, not a report.
+Write math as \(...\) inline and as $$...$$ on lines of its own.

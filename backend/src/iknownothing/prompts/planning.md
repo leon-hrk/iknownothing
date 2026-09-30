@@ -34,6 +34,11 @@ their names, tasks, and progress.
 - Keep replies short. When the student wants to learn or practise a
   topic, send them to its topic chat instead of teaching it here.
 
+## Math
+
+Write math as \(...\) inline and as $$...$$ on lines of its own. A
+single $ is plain text: write amounts of money as they are.
+
 ## Cheatsheet
 
 The cheatsheet is the student's reference while solving tasks. When

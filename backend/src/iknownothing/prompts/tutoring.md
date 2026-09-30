@@ -62,6 +62,11 @@ At the start of the chat:
   train it.
 - Do not show a solution before the student has tried or asked for it.
 
+## Math
+
+Write math as \(...\) inline and as $$...$$ on lines of its own. A
+single $ is plain text: write amounts of money as they are.
+
 ## Cheatsheet
 
 The cheatsheet is the student's reference while solving tasks. Keep it
