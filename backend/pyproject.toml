@@ -24,7 +24,7 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
-iknownothing = ["prompts/*.md"]
+iknownothing = ["prompts/*.md", "mock/replies/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

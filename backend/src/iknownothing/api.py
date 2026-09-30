@@ -1,5 +1,7 @@
 """The HTTP API: users, courses, course files, and chats; serves the built frontend from `IKN_FRONTEND_DIR`.
 
+With `IKN_MOCK_AI=1`, chats are answered by the mock AI client instead of the Anthropic API.
+
 Every request except listing and choosing users is served for the user in the cookie `ikn_user`.
 """
 
@@ -19,6 +21,7 @@ from iknownothing.ai_client import AIClient, AIError
 from iknownothing.config import Settings
 from iknownothing.course_store import CourseStore, CourseStoreError
 from iknownothing.ingestion.pipeline import RESULT
+from iknownothing.mock.ai_client import MockAIClient
 from iknownothing.tutor.chat import TutorError, reply, topic_entry
 from iknownothing.tutor.finalization import finalize
 
@@ -162,7 +165,7 @@ async def chat(body: ChatRequest, store: CourseStore = Depends(ready_store)) -> 
     language = store.read_json(RESULT)["language"]
 
     async def produce(queue: asyncio.Queue) -> None:
-        ai = AIClient(settings, store.user, store.course)
+        ai = _ai_client(store)
         try:
             async for event in reply(store, ai, body.topic, language, transcript):
                 await queue.put(event)
@@ -199,6 +202,10 @@ async def chat(body: ChatRequest, store: CourseStore = Depends(ready_store)) -> 
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+def _ai_client(store: CourseStore) -> AIClient | MockAIClient:
+    return (MockAIClient if settings.mock_ai else AIClient)(settings, store.user, store.course)
+
+
 async def _add_usage(store: CourseStore, directory: str, ai: AIClient) -> None:
     try:
         await courses.add_usage(store, directory, ai.tokens())
@@ -207,7 +214,7 @@ async def _add_usage(store: CourseStore, directory: str, ai: AIClient) -> None:
 
 
 async def _finalize(store: CourseStore, slug: str, transcript: list[dict]) -> None:
-    ai = AIClient(settings, store.user, store.course)
+    ai = _ai_client(store)
     try:
         async with _finalization_locks[(store.user, store.course)]:
             await finalize(store, ai, slug, store.read_json(RESULT)["language"], transcript)
