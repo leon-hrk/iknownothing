@@ -34,8 +34,8 @@ publishes one port, bound to `localhost`, and speaks plain HTTP.
 Configuration is passed as environment variables from a `.env` file
 next to the compose file: the Anthropic API key, the model of each
 <<_ai_requests,model tier>>, the port, the user ID that owns
-`data/`, and, for testing the UI, whether chats are answered by the
-mock AI client. The
+`data/`, and, for testing the UI, whether there is a user whose
+chats are answered by the mock AI client. The
 repository contains only `.env.example`. How the key and the file are
 protected is described in <<_secrets,chapter 8>>.
 

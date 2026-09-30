@@ -6,6 +6,9 @@ from fastapi.testclient import TestClient
 
 from iknownothing import api
 from iknownothing.config import Settings
+from iknownothing.mock import ai_client as mock_ai_client
+from iknownothing.course_store import CourseStore
+from iknownothing.mock.ai_client import SAMPLE_DATA, sample_chat
 from test_tutor import FakeAI, store  # noqa: F401
 
 
@@ -107,3 +110,31 @@ def test_chat_heartbeat(client, monkeypatch):
     r = client.post("/api/courses/control/chat", json={"topic": None, "transcript": [{"role": "user", "content": "hi"}]})
     kinds = [k for k, _ in events(r)]
     assert "heartbeat" in kinds and kinds[-1] == "messages"
+
+
+def test_mock_user_gets_the_sample_data_and_stores_nothing(client, store, tmp_path, monkeypatch):  # noqa: F811
+    monkeypatch.setattr(api, "settings", Settings(tmp_path, "m", "m", mock_user=True))
+    monkeypatch.setattr(mock_ai_client, "THINKING_SECONDS", 0)
+    monkeypatch.setattr(mock_ai_client, "CHUNK_SECONDS", 0)
+    sample = CourseStore(SAMPLE_DATA, "mock", "sample-course")
+    before = {rel: sample.read_bytes(rel) for rel in sample.files()}
+
+    assert client.get("/api/users").json() == ["alice", "mock"]
+    assert client.post("/api/user", json={"name": "mock"}).status_code == 204
+    assert client.get("/api/courses").json() == [{"name": "control", "status": "ready"}]
+
+    monkeypatch.setitem(api.app.dependency_overrides, api.current_user, lambda: "mock")
+    assert client.get("/api/courses").json() == [{"name": "sample-course", "status": "ready"}]
+    for topic in (None, "first-topic"):
+        params = {"topic": topic} if topic else {}
+        assert client.get("/api/courses/sample-course/chat", params=params).json() == sample_chat()
+        r = client.post("/api/courses/sample-course/chat",
+                        json={"topic": topic, "transcript": [{"role": "user", "content": "/normal"}]})
+        assert events(r)[-1][0] == "messages"
+        assert client.delete("/api/courses/sample-course/chat", params=params).status_code == 202
+    assert {rel: sample.read_bytes(rel) for rel in sample.files()} == before
+
+
+def test_no_mock_user_without_the_flag(client):
+    assert client.get("/api/users").json() == ["alice"]
+    assert client.post("/api/user", json={"name": "mock"}).status_code == 404

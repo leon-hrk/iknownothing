@@ -1,6 +1,7 @@
 """The HTTP API: users, courses, course files, and chats; serves the built frontend from `IKN_FRONTEND_DIR`.
 
-With `IKN_MOCK_AI=1`, chats are answered by the mock AI client instead of the Anthropic API.
+With `IKN_MOCK_USER=1`, there is also the user `mock`: its courses are the mock client's sample data, its chats
+are answered by the mock AI client, open as the sample chat, and are not stored.
 
 Every request except listing and choosing users is served for the user in the cookie `ikn_user`.
 """
@@ -10,6 +11,7 @@ import json
 import logging
 from collections import defaultdict
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, HTTPException, Response
 from fastapi.responses import PlainTextResponse, StreamingResponse
@@ -21,7 +23,7 @@ from iknownothing.ai_client import AIClient, AIError
 from iknownothing.config import Settings
 from iknownothing.course_store import CourseStore, CourseStoreError
 from iknownothing.ingestion.pipeline import RESULT
-from iknownothing.mock.ai_client import MockAIClient
+from iknownothing.mock.ai_client import SAMPLE_DATA, MockAIClient, sample_chat
 from iknownothing.tutor.chat import TutorError, reply, topic_entry
 from iknownothing.tutor.finalization import finalize
 
@@ -32,19 +34,33 @@ app = FastAPI(title="iknownothing")
 
 HEARTBEAT = 10
 COOKIE = "ikn_user"
+MOCK_USER = "mock"
 
 _finalization_locks: defaultdict[tuple[str, str], asyncio.Lock] = defaultdict(asyncio.Lock)
 
 
+def _is_mock(user: str) -> bool:
+    return settings.mock_user and user == MOCK_USER
+
+
+def _data_dir(user: str) -> Path:
+    return SAMPLE_DATA if _is_mock(user) else settings.data_dir
+
+
+def _user_exists(name: str) -> bool:
+    return accounts.exists(_data_dir(name), name)
+
+
 def current_user(ikn_user: str | None = Cookie(None)) -> str:
-    if ikn_user is None or not accounts.exists(settings.data_dir, ikn_user):
+    if ikn_user is None or not _user_exists(ikn_user):
         raise HTTPException(401, "no user chosen")
     return ikn_user
 
 
 @app.get("/api/users")
 def list_users() -> list[str]:
-    return accounts.names(settings.data_dir)
+    names = accounts.names(settings.data_dir)
+    return sorted({*names, MOCK_USER}) if settings.mock_user else names
 
 
 @app.get("/api/user")
@@ -58,14 +74,14 @@ class UserChoice(BaseModel):
 
 @app.post("/api/user", status_code=204)
 def choose_user(body: UserChoice, response: Response) -> None:
-    if not accounts.exists(settings.data_dir, body.name):
+    if not _user_exists(body.name):
         raise HTTPException(404, "no such user")
     response.set_cookie(COOKIE, body.name, max_age=365 * 24 * 3600, httponly=True, samesite="strict")
 
 
 def course_store(course: str, user: str = Depends(current_user)) -> CourseStore:
     try:
-        store = CourseStore(settings.data_dir, user, course)
+        store = CourseStore(_data_dir(user), user, course)
     except CourseStoreError:
         raise HTTPException(404, "no such course")
     if not store.exists():
@@ -81,9 +97,9 @@ def ready_store(store: CourseStore = Depends(course_store)) -> CourseStore:
 
 @app.get("/api/courses")
 def list_courses(user: str = Depends(current_user)) -> list[dict]:
-    d = settings.data_dir / user
-    names = sorted(p.name for p in d.iterdir() if p.is_dir())
-    return [{"name": n, "status": courses.status(CourseStore(settings.data_dir, user, n))} for n in names]
+    data_dir = _data_dir(user)
+    names = sorted(p.name for p in (data_dir / user).iterdir() if p.is_dir())
+    return [{"name": n, "status": courses.status(CourseStore(data_dir, user, n))} for n in names]
 
 
 @app.get("/api/courses/{course}")
@@ -128,14 +144,18 @@ def _directory(store: CourseStore, topic: str | None) -> str:
 @app.get("/api/courses/{course}/chat")
 def get_chat(topic: str | None = None, store: CourseStore = Depends(ready_store)) -> dict:
     """The open chat of a topic, or the course-level chat without `topic`: its transcript and usage."""
-    return courses.chat(store, _directory(store, topic))
+    directory = _directory(store, topic)
+    return sample_chat() if _is_mock(store.user) else courses.chat(store, directory)
 
 
 @app.delete("/api/courses/{course}/chat", status_code=202)
 def end_chat(tasks: BackgroundTasks, topic: str | None = None,
              store: CourseStore = Depends(ready_store)) -> None:
     """Ends the open chat; a topic's progress.md is updated from its transcript in the background."""
-    transcript = courses.end_chat(store, _directory(store, topic))
+    directory = _directory(store, topic)
+    if _is_mock(store.user):
+        return
+    transcript = courses.end_chat(store, directory)
     if topic is not None and transcript:
         tasks.add_task(_finalize, store, topic, transcript)
 
@@ -169,7 +189,8 @@ async def chat(body: ChatRequest, store: CourseStore = Depends(ready_store)) -> 
         try:
             async for event in reply(store, ai, body.topic, language, transcript):
                 await queue.put(event)
-            await asyncio.to_thread(courses.save_chat, store, directory, transcript, ai.tokens())
+            if not _is_mock(store.user):
+                await asyncio.to_thread(courses.save_chat, store, directory, transcript, ai.tokens())
             await queue.put(("usage", ai.tokens()))
             await queue.put(("messages", transcript[start:]))
         except (TutorError, AIError) as e:
@@ -178,7 +199,8 @@ async def chat(body: ChatRequest, store: CourseStore = Depends(ready_store)) -> 
             log.exception("chat failed")
             await queue.put(("error", "the reply failed"))
         finally:
-            await _add_usage(store, directory, ai)
+            if not _is_mock(store.user):
+                await _add_usage(store, directory, ai)
             await ai.close()
             await queue.put(None)
 
@@ -203,7 +225,7 @@ async def chat(body: ChatRequest, store: CourseStore = Depends(ready_store)) -> 
 
 
 def _ai_client(store: CourseStore) -> AIClient | MockAIClient:
-    return (MockAIClient if settings.mock_ai else AIClient)(settings, store.user, store.course)
+    return (MockAIClient if _is_mock(store.user) else AIClient)(settings, store.user, store.course)
 
 
 async def _add_usage(store: CourseStore, directory: str, ai: AIClient) -> None:

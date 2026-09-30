@@ -85,9 +85,12 @@ include::diagrams/building-blocks-level2.puml[]
 | The only caller of the Anthropic API. Loads prompts, sends each
   request with the instance's API key on the model of its tier
   (chapter 8), records its token usage, and streams responses back.
-  With `IKN_MOCK_AI=1`, a mock client answers chats instead: a
-  message `/<name>` gets the sample reply of that name, any other
-  message the list of names. Other requests fail.
+  With `IKN_MOCK_USER=1`, the API adds the user `mock`, whose
+  courses are sample data bundled with the mock client. A mock client
+  answers its chats: a message `/<name>` gets the sample reply of
+  that name, any other message the list of names. Other requests
+  fail. Its chats open as a sample chat that sends each name once,
+  and nothing of them is stored. All other users are unaffected.
 | Prompts
 |===
 

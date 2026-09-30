@@ -1,12 +1,15 @@
 """A stand-in for the AI Client that answers chats with sample replies, for testing the UI without the Anthropic API.
 
 A chat message `/<name>` is answered with `replies/<name>.md`; any other message with the list of names.
+Every chat opens as the sample chat, which sends each command once. `data/` holds the sample data: the user
+`mock` with a sample course.
 """
 
 import asyncio
 import re
 from collections.abc import AsyncIterator
 from importlib import resources
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -14,6 +17,8 @@ from anthropic.types import TextBlock
 
 from iknownothing.ai_client import AIError
 from iknownothing.config import Settings
+
+SAMPLE_DATA = Path(__file__).parent / "data"
 
 THINKING_SECONDS = 2.0
 CHUNK_SECONDS = 0.005
@@ -32,6 +37,15 @@ def reply_to(message: str) -> str:
         return samples[name]
     commands = "\n".join(f"- `/{n}`" for n in sorted(samples))
     return f"This is the **mock AI client**. Send one of these commands:\n\n{commands}\n"
+
+
+def sample_chat() -> dict:
+    """The chat every chat opens as: each command with its reply, and no usage."""
+    transcript = []
+    for name, text in sorted(replies().items()):
+        transcript += [{"role": "user", "content": f"/{name}"},
+                       {"role": "assistant", "content": [{"type": "text", "text": text}]}]
+    return {"transcript": transcript, "usage": {"input": 0, "cached": 0, "output": 0, "eur": 0.0}}
 
 
 def _last_text(messages: list[dict]) -> str:

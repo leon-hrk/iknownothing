@@ -1,0 +1,23 @@
+[
+  {
+    "slug": "first-topic",
+    "name": "First topic",
+    "priority": "high",
+    "dir": "topics/first-topic",
+    "sources": [{"task": "Sample exam, task 1", "tier": "A", "pages": [{"file": "exams/sample.pdf", "pages": "1"}]}]
+  },
+  {
+    "slug": "second-topic",
+    "name": "Second topic, with a name long enough to wrap in the course tree",
+    "priority": "medium",
+    "dir": "topics/second-topic",
+    "sources": [{"task": "Sample exam, task 2", "tier": "B", "pages": [{"file": "exams/sample.pdf", "pages": "1"}]}]
+  },
+  {
+    "slug": "third-topic",
+    "name": "Third topic",
+    "priority": "low",
+    "dir": "topics/third-topic",
+    "sources": [{"task": "Sample exam, task 3", "tier": "B", "pages": [{"file": "exams/sample.pdf", "pages": "1"}]}]
+  }
+]

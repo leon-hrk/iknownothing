@@ -10,7 +10,7 @@ class Settings:
     model_small: str
     frontend_dir: Path | None = None
     courses_dir: Path = Path("courses")
-    mock_ai: bool = False
+    mock_user: bool = False
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -20,5 +20,5 @@ class Settings:
             model_small=os.environ.get("IKN_MODEL_SMALL", "claude-sonnet-5"),
             frontend_dir=Path(os.environ["IKN_FRONTEND_DIR"]) if os.environ.get("IKN_FRONTEND_DIR") else None,
             courses_dir=Path(os.environ.get("IKN_COURSES_DIR", "courses")),
-            mock_ai=os.environ.get("IKN_MOCK_AI") == "1",
+            mock_user=os.environ.get("IKN_MOCK_USER") == "1",
         )
