@@ -1,4 +1,4 @@
-"""Course-level and topic-level chats: context assembly, chat tools, and the reply loop."""
+"""Topic chats: context assembly, chat tools, and the reply loop."""
 
 import json
 from collections.abc import AsyncIterator
@@ -51,7 +51,6 @@ POSE_TASK_TOOL = {
         "additionalProperties": False,
     },
 }
-COURSE_TOOLS = [CHEATSHEET_TOOL]
 INTRODUCTION = "introduction"
 
 
@@ -163,25 +162,6 @@ async def topic_context(store: CourseStore, slug: str, language: str) -> list[di
     return [*sources, {"type": "text", "text": text}]
 
 
-def course_context(store: CourseStore, language: str) -> list[dict]:
-    """The context of a course-level chat: every topic with its priority, tasks, and progress, then the course files."""
-    topics = []
-    for t in store.read_json("topics.json"):
-        tasks = "\n".join(f"- {s['task']} (Tier {s['tier']})" for s in t["sources"])
-        p = progress(store, t)
-        topics.append(
-            f'<topic name="{t["name"]}" priority="{t["priority"]}">\n'
-            f"<tasks>\n{tasks}\n</tasks>\n<progress>\n{json.dumps(p, ensure_ascii=False)}\n</progress>\n</topic>"
-        )
-    text = (
-        f"<language>{language}</language>\n\n"
-        f"<topics>\n{chr(10).join(topics)}\n</topics>\n\n"
-        f"<notes>\n{store.read_text('notes.md')}\n</notes>\n\n"
-        f"<cheatsheet>\n{_optional(store, 'cheatsheet.md')}\n</cheatsheet>"
-    )
-    return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
-
-
 def step_start(transcript: list[dict]) -> int:
     """Where the current step begins: after the result of the last successful `complete_step` call, or 0."""
     for i in range(len(transcript) - 2, -1, -1):
@@ -205,7 +185,7 @@ def _with_context(ctx: list[dict], transcript: list[dict]) -> list[dict]:
     return [{"role": "user", "content": [*ctx, *first]}, *transcript[1:]]
 
 
-async def _execute(store: CourseStore, topic: dict | None, block: Any) -> tuple[dict, tuple[str, Any]]:
+async def _execute(store: CourseStore, topic: dict, block: Any) -> tuple[dict, tuple[str, Any]]:
     """Runs one tool call; returns its tool result and the event it emits."""
     args = block.input
     if block.name == "update_cheatsheet":
@@ -231,11 +211,10 @@ async def _execute(store: CourseStore, topic: dict | None, block: Any) -> tuple[
 
 
 async def reply(
-    store: CourseStore, ai: AIClient, slug: str | None, language: str, transcript: list[dict],
+    store: CourseStore, ai: AIClient, slug: str, language: str, transcript: list[dict],
 ) -> AsyncIterator[tuple[str, Any]]:
-    """Streams the tutor's reply to a transcript that ends with the student's message.
+    """Streams the tutor's reply to a transcript of the chat on the topic `slug` that ends with the student's message.
 
-    `slug` names the topic of a topic-level chat; `None` makes it a course-level chat.
     A completed step is recorded in the topic's progress; the reply then continues from the updated
     context without the messages before.
 
@@ -244,15 +223,12 @@ async def reply(
     tool calls and results included, to `transcript`. On failure the transcript is left as it was.
     """
     start = len(transcript)
-    if slug is None:
-        topic, request_type, tools, ctx = None, "planning", COURSE_TOOLS, course_context(store, language)
-    else:
-        topic = topic_entry(store, slug)
-        request_type, tools, ctx = "tutoring", TOPIC_TOOLS, await topic_context(store, slug, language)
+    topic = topic_entry(store, slug)
+    ctx = await topic_context(store, slug, language)
     try:
         for _ in range(MAX_TOOL_ROUNDS):
             msg = None
-            async for kind, value in ai.stream_chat(request_type, _with_context(ctx, transcript), tools):
+            async for kind, value in ai.stream_chat("tutoring", _with_context(ctx, transcript), TOPIC_TOOLS):
                 if kind == "message":
                     msg = value
                 else:

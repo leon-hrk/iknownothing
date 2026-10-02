@@ -26,8 +26,15 @@ docker compose exec backend iknownothing user add alice
 docker compose exec backend iknownothing user remove alice    # deletes data/alice/ with her courses
 ```
 
-The operator hands a course to a user. The material goes into
-`courses/<course>/`:
+A user creates a course in the UI: *+* in the left rail opens a
+dialog for the name, the PDFs of past exams and exercise sheets, and
+notes on the course. *OK* uploads them and starts the ingestion,
+which takes a few minutes; the course icon pulses until it is done.
+A right click on a course icon adds files, retries a failed
+ingestion, or deletes the course.
+
+The operator can do the same from the command line. The material
+goes into `courses/<course>/`:
 
 ```
 courses/control-theory/

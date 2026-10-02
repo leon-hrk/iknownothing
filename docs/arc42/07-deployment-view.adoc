@@ -18,8 +18,9 @@ publishes one port, bound to `localhost`, and speaks plain HTTP.
 
 | `backend`
 | The application image running the FastAPI application. Serves the
-  HTTP API and the built frontend as static files. The operator runs
-  the user and course commands in it with `docker compose exec`.
+  HTTP API and the built frontend as static files, and runs the
+  ingestions started from the UI. The operator runs the user and
+  course commands in it with `docker compose exec`.
 
 | Directory `data/`
 | The filesystem of <<_persistence,Persistence>>, next to the compose
@@ -27,8 +28,9 @@ publishes one port, bound to `localhost`, and speaks plain HTTP.
   ID so that the operator owns the files.
 
 | Directory `courses/`
-| The course material the operator adds courses from, next to the
-  compose file and mounted read-only into `backend` at `/courses`.
+| The course material the operator's commands add courses from, next
+  to the compose file and mounted read-only into `backend` at
+  `/courses`.
 |===
 
 Configuration is passed as environment variables from a `.env` file

@@ -10,13 +10,13 @@ const Pdf = lazy(() => import("./Pdf"));
 
 export const CHEATSHEET = "cheatsheet.md";
 
-/** The chat of a course (`topic` null) or of one of its topics. */
-export type ChatParams = { course: string; topic: string | null };
+/** The chat of a topic of a course. */
+export type ChatParams = { course: string; topic: string };
 
 /** A Markdown file or a source PDF of a course; a PDF at `page`, scrolled to whenever `opened` changes. */
 export type DocParams = { course: string; path: string; page?: number; opened?: number };
 
-export const chatId = (course: string, topic: string | null) => `chat:${course}:${topic ?? ""}`;
+export const chatId = (course: string, topic: string) => `chat:${course}:${topic}`;
 export const docId = (course: string, path: string) => `doc:${course}:${path}`;
 
 /** What the panels need from the workspace around them. */
@@ -36,7 +36,7 @@ export const ShellContext = createContext<Shell>(null!);
 let nextId = 1;
 
 /** Asks before the chat is ended. */
-function EndDialog({ topic, onEnd, onCancel }: { topic: boolean; onEnd: () => void; onCancel: () => void }) {
+function EndDialog({ onEnd, onCancel }: { onEnd: () => void; onCancel: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
     document.addEventListener("keydown", onKey);
@@ -46,9 +46,7 @@ function EndDialog({ topic, onEnd, onCancel }: { topic: boolean; onEnd: () => vo
     <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
       <div className="dialog" role="alertdialog" aria-labelledby="end-title">
         <h2 id="end-title">End this session?</h2>
-        <p>
-          The chat is cleared. Your {topic ? "progress and cheatsheet are" : "cheatsheet is"} kept.
-        </p>
+        <p>The chat is cleared. Your progress and cheatsheet are kept.</p>
         <div className="actions">
           <button onClick={onCancel}>Keep chatting</button>
           <button className="primary" autoFocus onClick={onEnd}>End session</button>
@@ -106,7 +104,7 @@ export function ChatPanel({ params: { course, topic }, api }: IDockviewPanelProp
       </header>
       <Chat key={chat.id} open={chat} update={(t) => update(chat.id, t)} onCheatsheet={onCheatsheet}
         onUsage={(u) => onUsage(chat.id, u)} onBusy={setBusy} onOpen={onOpen} />
-      {ending && <EndDialog topic={topic !== null} onEnd={end} onCancel={() => setEnding(false)} />}
+      {ending && <EndDialog onEnd={end} onCancel={() => setEnding(false)} />}
     </div>
   );
 }
@@ -143,5 +141,5 @@ export function DocPanel({ params: doc }: IDockviewPanelProps<DocParams>) {
 /** Shown while no tab is open. */
 export function Watermark() {
   const { user } = useContext(ShellContext);
-  return <p className="hint">{user ? "Open a course to start." : "Choose a user at the bottom left."}</p>;
+  return <p className="hint">{user ? "Open a topic to start." : "Choose a user at the bottom left."}</p>;
 }

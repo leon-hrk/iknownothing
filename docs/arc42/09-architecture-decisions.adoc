@@ -19,6 +19,33 @@
 // Consequences::
 // What this costs us and what it rules out.
 
+[[adr-ui-ingestion]]
+=== 18. Users create courses in the UI; ingestion runs in the backend
+
+Status:: accepted
+
+Context::
+With courses added only by the operator's command, every new course
+and every exam or exercise sheet added later was a job for the
+operator. Students get new material during the semester and want to
+add it themselves.
+
+Decision::
+A user creates a course from its PDFs and notes in the UI, adds PDFs
+to it, retries a failed ingestion, and deletes it. Each upload or
+retry starts the ingestion as a background task of the backend
+process, at most one per course. The step it is at is kept in memory
+and shown in the UI; a failure is written into the course. The
+operator's commands stay and run the same code in their own process.
+
+Consequences::
+There is still no worker service and no job queue to deploy. An
+ingestion running when the backend stops is lost; it is started again
+from the UI and skips the steps whose results already exist. The
+backend process carries the long requests of ingestion beside the
+chats. Every user spends the operator's API keys on ingestion, as
+they already do on chats.
+
 [[adr-reference-solutions]]
 === 17. Ingestion writes reference solutions for tasks without one
 
@@ -167,7 +194,7 @@ store.
 [[adr-operator-ingestion]]
 === 12. The operator ingests courses
 
-Status:: accepted
+Status:: superseded by 18
 
 Context::
 v0 is a feasibility study for a small group. The operator provides

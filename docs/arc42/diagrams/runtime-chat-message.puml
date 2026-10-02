@@ -7,8 +7,8 @@ participant "Tutor" as tutor
 participant "Course Store" as store
 participant "AI Client" as ai
 
-frontend -> tutor : POST scope, transcript, message
-tutor -> store : read context for scope\n(topic: source pages)
+frontend -> tutor : POST topic, transcript, message
+tutor -> store : read the topic's context\n(tasks with figures)
 tutor -> ai : context, transcript, chat tools
 
 loop until the reply has no tool call

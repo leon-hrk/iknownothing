@@ -2,17 +2,20 @@
 skinparam shadowing false
 skinparam defaultTextAlignment center
 
-actor "Operator" as operator
-participant "Courses\n(command)" as courses
+actor "Student" as student
+participant "Frontend" as frontend
+participant "Courses\n(HTTP API)" as courses
 participant "Ingestion" as ingestion
 participant "Course Store" as store
 participant "AI Client" as ai
 participant "OCR Client" as ocr
 
-operator -> courses : course add <user> <course> [<dir>]
+student -> frontend : New course: name, notes, PDFs
+frontend -> courses : POST /api/courses
 courses -> store : sources/<type>/<file>.pdf,\nnotes.md
-courses -> ingestion : ingest
+courses -> ingestion : start in the background
 activate ingestion
+courses --> frontend : 202 Accepted
 
 loop every PDF without Markdown
   ingestion -> ocr : PDF
@@ -32,20 +35,24 @@ par every exercise sheet not read yet
 end
 ingestion -> store : ingestion/topics.json
 
-opt other-tasks has tasks
-  ingestion -> ai : tasks of other-tasks, topics
+opt the topics or the tasks grouping may move changed
+  ingestion -> ai : tasks of other-tasks and of\nexam-less topics, topics
   ai --> ingestion : new topics, tasks that move
   ingestion -> store : ingestion/topics.json
 end
 
 ingestion -> store : topics/<topic>/topic.md,\ntopics.json
 
-par every topic with Tier A or B tasks not done yet
+par every topic whose tasks changed since its solutions
   ingestion -> ai : its tasks with figures,\ntopic.md, language
   ai --> ingestion : reference solutions for\nthe tasks without one
   ingestion -> store : topics/<topic>/solutions.md
 end
 ingestion -> store : ingestion/topics.json
 deactivate ingestion
-courses --> operator : steps, token usage
+
+loop while the ingestion runs
+  frontend -> courses : GET /api/courses
+  courses --> frontend : the step it is at
+end
 @enduml

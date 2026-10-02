@@ -12,7 +12,7 @@ import logging
 from collections.abc import AsyncIterator
 from pathlib import Path
 
-from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
+from fastapi import Cookie, Depends, FastAPI, File, Form, HTTPException, Response, UploadFile
 from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -21,6 +21,7 @@ from iknownothing import accounts, courses
 from iknownothing.ai_client import AIClient, AIError
 from iknownothing.config import Settings
 from iknownothing.course_store import CourseStore, CourseStoreError
+from iknownothing.ingestion import runs
 from iknownothing.ingestion.pipeline import RESULT, unit
 from iknownothing.mock.ai_client import SAMPLE_DATA, MockAIClient, sample_chat
 from iknownothing.tutor.chat import PROGRESS, TutorError, reply, topic_entry
@@ -92,11 +93,81 @@ def ready_store(store: CourseStore = Depends(course_store)) -> CourseStore:
     return store
 
 
+def _summary(store: CourseStore) -> dict:
+    """A course's name and status, with the step of a running ingestion or why the last one failed."""
+    return {"name": store.course, "status": courses.status(store), "ingestion": runs.step(store),
+            "error": runs.error(store)}
+
+
 @app.get("/api/courses")
 def list_courses(user: str = Depends(current_user)) -> list[dict]:
     data_dir = _data_dir(user)
     names = sorted(p.name for p in (data_dir / user).iterdir() if p.is_dir())
-    return [{"name": n, "status": courses.status(CourseStore(data_dir, user, n))} for n in names]
+    return [_summary(CourseStore(data_dir, user, n)) for n in names]
+
+
+async def _material(exams: list[UploadFile], exercises: list[UploadFile]) -> courses.Material:
+    return {"exams": [(f.filename or "", await f.read()) for f in exams],
+            "exercises": [(f.filename or "", await f.read()) for f in exercises]}
+
+
+def _ingest(store: CourseStore) -> None:
+    try:
+        runs.start(settings, store)
+    except runs.IngestionRunning as e:
+        raise HTTPException(409, str(e))
+
+
+@app.post("/api/courses", status_code=202)
+async def create_course(name: str = Form(), notes: str = Form(""), exams: list[UploadFile] = File([]),
+                        exercises: list[UploadFile] = File([]), user: str = Depends(current_user)) -> dict:
+    """Creates a course from its notes and PDFs and starts ingesting it."""
+    if _is_mock(user):
+        raise HTTPException(403, "the mock user cannot create courses")
+    try:
+        store = CourseStore(settings.data_dir, user, name)
+        courses.create(store, notes, await _material(exams, exercises))
+    except CourseStoreError:
+        raise HTTPException(422, "a course name has lowercase letters, digits, hyphens, and underscores")
+    except courses.CourseError as e:
+        raise HTTPException(409 if store.exists() else 422, str(e))
+    _ingest(store)
+    return _summary(store)
+
+
+@app.post("/api/courses/{course}/files", status_code=202)
+async def add_files(notes: str = Form(), exams: list[UploadFile] = File([]), exercises: list[UploadFile] = File([]),
+                    store: CourseStore = Depends(course_store)) -> dict:
+    """Adds PDFs to a course, replaces its notes, and starts ingesting what is new."""
+    if _is_mock(store.user):
+        raise HTTPException(403, "the mock user cannot change courses")
+    if runs.step(store):
+        raise HTTPException(409, f"{store.course} is being ingested")
+    try:
+        courses.add(store, notes, await _material(exams, exercises))
+    except courses.CourseError as e:
+        raise HTTPException(422, str(e))
+    _ingest(store)
+    return _summary(store)
+
+
+@app.post("/api/courses/{course}/ingestion", status_code=202)
+def retry_ingestion(store: CourseStore = Depends(course_store)) -> dict:
+    """Starts ingesting the course again, from the steps whose results are missing."""
+    if _is_mock(store.user):
+        raise HTTPException(403, "the mock user cannot change courses")
+    _ingest(store)
+    return _summary(store)
+
+
+@app.delete("/api/courses/{course}", status_code=204)
+def delete_course(store: CourseStore = Depends(course_store)) -> None:
+    """Deletes the course with everything in it."""
+    if _is_mock(store.user):
+        raise HTTPException(403, "the mock user cannot change courses")
+    if runs.step(store):
+        raise HTTPException(409, f"{store.course} is being ingested")
+    store.remove()
 
 
 @app.get("/api/courses/{course}")
@@ -104,8 +175,7 @@ def get_course(store: CourseStore = Depends(course_store)) -> dict:
     """The course with its topics in priority order, each with the Markdown files and the progress of its directory, and its
     sources: the PDFs and their Markdown conversions.
 
-    `usage` holds the tokens spent on the chats of a topic and on the
-    course-level chat.
+    `usage` holds the tokens spent on the chats of a topic.
     """
     topics = []
     if store.exists("topics.json"):
@@ -117,8 +187,7 @@ def get_course(store: CourseStore = Depends(course_store)) -> dict:
                       if p.suffix in (".md", ".pdf")),
                      key=lambda f: (f.split("/")[1], unit(f), f))
     return {"name": store.course, "status": courses.status(store), "topics": topics,
-            "files": [f for f in ("notes.md", "cheatsheet.md") if store.exists(f)], "sources": sources,
-            "usage": courses.usage(store)}
+            "files": [f for f in ("notes.md", "cheatsheet.md") if store.exists(f)], "sources": sources}
 
 
 SOURCE_MEDIA = {".jpeg": "image/jpeg", ".jpg": "image/jpeg", ".png": "image/png", ".pdf": "application/pdf"}
@@ -141,10 +210,8 @@ def read_file(rel: str, store: CourseStore = Depends(course_store)) -> PlainText
     raise HTTPException(404, "no such file")
 
 
-def _directory(store: CourseStore, topic: str | None) -> str:
-    """The directory of a topic-level chat, or `""` for the course-level chat."""
-    if topic is None:
-        return ""
+def _directory(store: CourseStore, topic: str) -> str:
+    """The directory of a topic."""
     try:
         return topic_entry(store, topic)["dir"]
     except TutorError as e:
@@ -152,14 +219,14 @@ def _directory(store: CourseStore, topic: str | None) -> str:
 
 
 @app.get("/api/courses/{course}/chat")
-def get_chat(topic: str | None = None, store: CourseStore = Depends(ready_store)) -> dict:
-    """The open chat of a topic, or the course-level chat without `topic`: its transcript and usage."""
+def get_chat(topic: str, store: CourseStore = Depends(ready_store)) -> dict:
+    """The open chat of a topic: its transcript and usage."""
     directory = _directory(store, topic)
     return sample_chat() if _is_mock(store.user) else courses.chat(store, directory)
 
 
 @app.delete("/api/courses/{course}/chat", status_code=204)
-def end_chat(topic: str | None = None, store: CourseStore = Depends(ready_store)) -> None:
+def end_chat(topic: str, store: CourseStore = Depends(ready_store)) -> None:
     """Ends the open chat."""
     directory = _directory(store, topic)
     if not _is_mock(store.user):
@@ -167,7 +234,7 @@ def end_chat(topic: str | None = None, store: CourseStore = Depends(ready_store)
 
 
 class ChatRequest(BaseModel):
-    topic: str | None = None
+    topic: str
     transcript: list[dict]
 
 

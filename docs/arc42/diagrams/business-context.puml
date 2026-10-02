@@ -9,9 +9,9 @@ rectangle "**iknownothing**" as system
 cloud "Anthropic API" as ai
 cloud "Mistral OCR API" as ocr
 
-student --> system : chat
+student --> system : course material, notes,\nchat
 system --> student : tutoring, grading,\nMarkdown files
-operator --> system : deployment, configuration,\nAPI key, users,\ncourse material, notes
+operator --> system : deployment, configuration,\nAPI keys, users
 system --> ai : documents, prompts\n(instance API key)
 ai --> system : topics,\nreplies
 system --> ocr : PDFs\n(instance API key)

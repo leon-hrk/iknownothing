@@ -30,7 +30,7 @@ def test_choose_user(tmp_path, monkeypatch):
     assert client.post("/api/user", json={"name": "carol"}).status_code == 404
     assert client.post("/api/user", json={"name": "alice"}).status_code == 204
     assert client.get("/api/user").json() == {"name": "alice"}
-    assert client.get("/api/courses").json() == [{"name": "control", "status": "not ingested"}]
+    assert client.get("/api/courses").json() == [{"name": "control", "status": "not ingested", "ingestion": None, "error": None}]
 
     client.cookies.set(api.COOKIE, "..")
     assert client.get("/api/courses").status_code == 401

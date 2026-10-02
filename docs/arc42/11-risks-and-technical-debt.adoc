@@ -60,7 +60,7 @@
   disk but is no longer listed, so its progress and open chat are
   gone for the student. A task whose label changes on re-reading
   loses its entry in `progress.json`.
-| Accepted for v0. Updates are rare, and the operator runs them.
+| Accepted for v0. Updates are rare.
 
 | Wrong topics
 | Topics are built without review. A missing, split, or misnamed
@@ -70,10 +70,18 @@
   scope) removes the risk.
 
 | Shared rate limit and budget
-| All users run on one API key. Parallel ingestions exhaust its rate
-  limit and slow down every chat; one user's heavy use spends the
-  budget of all.
-| Ingestions are started by the operator, one per command; a spend
-  limit on the key caps the cost. Per-user keys (chapter 1, out of scope) remove
-  the risk.
+| All users run on one API key, and every user starts ingestions
+  from the UI (<<adr-ui-ingestion>>). Parallel ingestions exhaust its
+  rate limit and slow down every chat; one user's heavy use spends
+  the budget of all.
+| At most one ingestion runs per course; a spend limit on the key
+  caps the cost. Per-user keys (chapter 1, out of scope) remove the
+  risk.
+
+| Ingestion lost on restart
+| An ingestion runs as a background task of the backend process. When
+  the backend stops, it is lost without an error, and the course
+  stays at the last result written.
+| Every step writes its result before the next starts; *Retry
+  ingestion* resumes at the first missing result.
 |===

@@ -1,7 +1,7 @@
 == Introduction and Goals
 
-iknownothing is a self-hosted, AI-powered exam preparation tutor. The
-operator loads a student's course materials into it, the student says
+iknownothing is a self-hosted, AI-powered exam preparation tutor. A
+student loads their course materials into it and says
 "I know nothing" - the agent builds a structured, topic-based study
 plan and tutors them through it, from knowing nothing to exam ready. Along the way it keeps
 a cheatsheet of what the student has learned and tracks their progress
@@ -41,10 +41,10 @@ them instead of from zero.
   for the instance. All AI calls of all users, including ingestion,
   run on the Anthropic key; the conversion of the PDFs runs on the
   Mistral key.
-* The operator provides the course material: they add a course for a
-  student from its PDFs and `notes.md` and ingest it. An ingested
-  course can be copied to further students without being ingested
-  again.
+* A user creates their courses in the UI from the PDFs and notes,
+  and adds material to a course later; each starts an ingestion that
+  runs in the backend. The operator can do the same from the command
+  line.
 
 ==== Course
 
@@ -52,8 +52,8 @@ The top-level unit, owned by a user. A course contains:
 
 * *Exercise sheets + solutions* (PDF)
 * *Past exams + solution proposals* (PDF)
-* *Notes file* (`notes.md`, required) - free-form remarks the AI must
-  respect (e.g. "prof emphasized topic X in Q&A", "topic Y is new
+* *Notes file* (`notes.md`, may be empty) - free-form remarks the AI
+  must respect (e.g. "prof emphasized topic X in Q&A", "topic Y is new
   this year")
 
 [[ingestion-pipeline]]
@@ -91,9 +91,8 @@ The course language is detected here.
   sources, with the Tier C tasks named as out of reach.
 . *Topic list*: `topics.json` - the topics in priority order, each
   with its priority, its topic directory, and its sources. The UI
-  orders the topic tree by it; the course-level chat takes the
-  priorities and tasks from it; a topic-level chat takes the block
-  ranges of its tasks from it.
+  orders the topic tree by it; a topic chat takes the block ranges
+  of its tasks from it.
 . *Solutions*: every Tier A or B task whose blocks hold no solution -
   often a past exam task - gets a *reference solution*, written by the
   large model from the topic's tasks, in the method and notation of
@@ -116,17 +115,17 @@ solution style and notation it *inverts*: exercise solutions, then
 past exam solutions, outrank the exam question itself. The exam says
 what is asked; the solutions say how it is to be written down.
 
-A topic-level chat reads the topic's tasks - their blocks, with the
+A topic chat reads the topic's tasks - their blocks, with the
 figures in them as images - and its reference solutions, and nothing
 else of the material.
 
 ==== Course Lifecycle
 
-A course is ingested *once*, from the PDFs and the `notes.md` the
-operator adds it with. Ingestion does not start without `notes.md`.
-Nothing can be added to or changed in a course afterwards. Until
-ingestion is done, the course is listed as not ready and cannot be
-opened.
+A course is created from its PDFs and notes and ingested in the
+background. PDFs can be added later; each addition ingests only what
+is new (see Ingestion Pipeline). A PDF of a course cannot be
+replaced, and a course is deleted as a whole. Until its first
+ingestion is done, a course has no topics to open.
 
 The student can read every Markdown file of a course and the
 progress files but edits none.
@@ -180,24 +179,13 @@ contains tasks from more than one tier.
 
 ==== Tutoring Sessions
 
-Sessions come in two scopes.
-
-*Course-level chat* - orientation and planning. This is the default
-entry point: the student opens a course and asks "which topics do I
-still need to learn?". Context is `notes.md`, the progress of every
-topic, the topic priorities and tasks from `topics.json`, and
-`cheatsheet.md` - never a full topic artifact or the tasks. It
-answers where the student stands and what to work on next; to work on a topic, the student opens it.
-
-*Topic-level chat* - the actual tutoring, opened by clicking a topic.
-
-The course and every topic have at most one open chat each, stored
-until the student ends the session. Clicking a topic or the course
-shows its open chat; switching between chats, reloading, or closing
+A session is a chat on one topic, opened by clicking the topic.
+Every topic has at most one open chat, stored until the student ends
+the session. Clicking a topic shows its open chat; switching between chats, reloading, or closing
 the browser tab ends nothing. A session ends only when the student
 chooses *End session* and confirms; its chat is then cleared.
 
-* Context loaded into a topic-level session:
+* Context loaded into a session:
 ** The topic's artifact (`topics/<topic>/topic.md`)
 ** The topic's tasks, as Markdown with their figures
 ** The topic's reference solutions (`topics/<topic>/solutions.md`)
@@ -214,7 +202,7 @@ chooses *End session* and confirms; its chat is then cleared.
   knows the topic or asks to be quizzed gets exam-style problems with
   feedback, at the difficulty and working time of the exam tasks in
   its sources.
-* A topic-level session runs in *steps*: the introduction, then one
+* A session runs in *steps*: the introduction, then one
   task at a time. When a step is done, the tutor records it in
   `progress.json` and continues from the updated progress, without
   the messages of the steps before. The student still sees the whole
@@ -265,67 +253,80 @@ chooses *End session* and confirms; its chat is then cleared.
 
 ==== User Interface
 
-A classic AI chat app: a collapsible course tree on the left, the
-chat on the right. The student never has to learn a special
-interface - they open a course and ask a question. Like in a code
+A classic AI chat app: the courses and the tree of the open course on
+the left, the chat on the right. The student never has to learn a
+special interface - they open a topic and ask a question. Like in a code
 editor, everything the student opens is a tab, and tabs can be
 arranged side by side.
 
 ....
-+-----------------------------+------------------------------------------+
-| iknownothing            [+] | Control Theory x | Observers x |         |
-+-----------------------------+------------------------------------------+
-|                             |                                          |
-| v Control Theory            |                    +-------------------+ |
-|   v Topics                  |                    | Which topics do I | |
-|   |  > Laplace              |                    | still need to     | |
-|   |  > Stability            |                    | learn?            | |
-|   |  v Observers            |                    +-------------------+ |
-|   |      topic.md           |                                          |
-|   |      progress.json      | Three topics are still open, in exam     |
-|   |  > State Space          | priority order:                          |
-|   |  Notes                  |                                          |
-|   |  Cheatsheet             | 1. Observers - high priority, never      |
-| > Signals & Systems         |    practised                             |
-| > Thermodynamics            | 2. State Space - high priority, never    |
-|                             |    practised                             |
-|                             | 3. Stability - Nyquist is where you      |
-|                             |    keep slipping                         |
-|                             |                                          |
-|                             | I'd start with Observers.                |
-|                             |                                          |
-|                             | +------------------------------------+   |
-|                             | | Ask anything...                 >  |   |
-|                             | +------------------------------------+   |
-|                             |                                          |
-+-----------------------------+------------------------------------------+
++----+------------------------+------------------------------------------+
+|[CO]| control-theory         | Observers x | Stability x |              |
+|[SI]+------------------------+------------------------------------------+
+| +  | v Observers            |                    +-------------------+ |
+|    |     topic.md           |                    | Bring mir das     | |
+|    |     progress.json      |                    | Thema bei         | |
+|    |     solutions.md       |                    +-------------------+ |
+|    | > Stability            |                                          |
+|    | > State Space          | Ein Beobachter schätzt den Zustand eines |
+|    | > Laplace              | Systems aus Ein- und Ausgängen. Ein      |
+|    | > Sources              | kleines Beispiel: ...                    |
+|    |   Notes                |                                          |
+|    |   Cheatsheet           | Ist das soweit klar?                     |
+|    |                        |                                          |
+|    |                        | +------------------------------------+   |
+|    |                        | | Ask anything...                 >  |   |
+|[LE]|                        | +------------------------------------+   |
++----+------------------------+------------------------------------------+
 ....
 
-* *Courses* are the top level. Clicking one opens the course-level
-  chat and reveals everything that belongs to it.
+* *Courses* are icons in a narrow rail on the far left, each the first
+  two letters of the course name. Clicking one opens the course and
+  shows its tree; clicking the open course's icon hides or shows the
+  tree. Below the icons, *+* creates a course.
+* The *tree* shows the open course: its topics, *Sources*, *Notes*,
+  *Cheatsheet*, and the token usage of all its topics. While the
+  course is being ingested, the tree shows the step the ingestion is
+  at; after a failed ingestion, the error and a *Retry* button; a
+  course that is not ingested offers *Ingest*.
+* A course icon pulses while its ingestion runs and has a red border
+  after a failure. A right click on it opens a menu: *Add files*,
+  *Retry ingestion* (after a failure, or when the course is not
+  ingested), and *Delete course*, which asks for confirmation. *Add
+  files* and *Delete course* are disabled while the course is being
+  ingested.
+* *+* and *Add files* open the same dialog: the course name (only
+  when creating), a drop zone each for past exams and exercise sheets
+  - PDFs dropped or chosen, each removable again -, and the notes,
+  filled with the course's notes when adding. A hint says that a
+  solution sheet goes with the exam or exercise sheet of the same
+  digits. *OK* uploads the files and starts the ingestion.
 * *Topics* are sorted by exam priority; the arrow in front of a topic
   is red for high, orange for medium, and grey for low priority.
   Clicking one opens its
   topic chat; expanding it lists the files of its topic directory.
-* The *workspace* right of the tree holds tabs in groups. A chat or
+* The *workspace* right of the tree holds the tabs of the open
+  course, in groups. A chat or
   file opens as a tab right of the active tab, in the active group;
   an open one is only shown. Dragging a tab onto another group's tab
   bar moves it there, dropping it on an edge of a group splits the
-  group, and the borders between groups can be dragged. Chats in
-  hidden tabs keep streaming. The arrangement is restored after a
-  reload, per user.
+  group, and the borders between groups can be dragged. Every course
+  has its own workspace: switching courses hides the tabs of the
+  other instead of closing them, so its chats keep streaming and its
+  arrangement is there when switching back. Every course's
+  arrangement, the open course, the expanded folders, and whether
+  the tree is shown are restored after a reload, per user.
 * A bar above each chat holds, on the right, its token
   usage and the *End session* button. The button asks for
   confirmation, then ends the session: the chat is cleared. The
   progress recorded in its steps is kept.
-* A chat tab is an ordinary chat. Planning, tutoring, and
-  quizzing all happen there.
+* A chat tab is an ordinary chat. Tutoring and quizzing happen
+  there.
 * Token usage is shown as input (↑) tokens, cached input included and
   the cached share named, output (↓) tokens, and the approximate cost
-  in euros: in the bar of each chat for its session, and on three lines in
-  an expanded topic for all its chats and in an
-  expanded course for the whole course, its course-level chats and
-  all its topics together.
+  in euros: in the bar of each chat for its session, and on three
+  lines in an expanded topic for all its chats and at the end of the
+  tree for all topics of the course together.
 * Clicking a Markdown file - the files of a topic, *Notes*,
   *Cheatsheet*, and the converted exams and exercises under
   *Sources* - shows it rendered and read-only, figures in place, in
@@ -334,9 +335,7 @@ arranged side by side.
 * *Sources* also lists the PDF of every converted source, beside its
   conversion. Clicking one shows it in a tab, every page at the
   tab's width.
-* A narrow column left of the course tree holds a button that hides
-  and shows the tree.
-* At the bottom of the narrow column, a round button shows the first
+* At the bottom of the rail, a round button shows the first
   two letters of the user and opens the list of users. Choosing
   another user shows that user's courses and tabs.
 
@@ -367,9 +366,6 @@ Direction, not a plan. Nothing here is designed.
   so it is consistent again.
 * *Editing derived files*, and keeping student progress and user
   edits across every change a course update makes to the topics.
-* *Upload in the UI.* The student creates a course and uploads its
-  PDFs and `notes.md` in the browser, and ingestion runs in the
-  background while the UI shows its progress.
 * *EU-hosted AI providers*, for users who cannot or will not send
   course material to a US provider.
 * *Sharing course material between users.*
@@ -437,8 +433,7 @@ Ordered by priority. Concrete scenarios are in
 | Operator
 | Runs an instance for themselves or a small group with minimal
   setup and no special hardware. Provides the Anthropic API key, pays
-  for all AI calls, creates the users, and adds the students'
-  courses.
+  for all AI calls, and creates the users.
 
 | Developer
 | Builds against this specification; needs clear boundaries and

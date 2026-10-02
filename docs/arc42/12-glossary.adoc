@@ -25,11 +25,6 @@
 | The top-level unit, owned by one user: sources, notes, derived files,
   and student state for one exam.
 
-| Course-level chat
-| A session scoped to the whole course, for orientation and planning.
-  Loads the notes, the progress of every topic, the topic priorities
-  and tasks, and the cheatsheet, never a topic artifact.
-
 | Chat tool
 | An action the tutor takes during a chat through a tool call:
   `update_cheatsheet`, `pose_task`, `complete_step`.
@@ -57,7 +52,9 @@
 | Ingestion
 | The pipeline that turns a course's PDFs into Markdown, topics with
   their sources, topic directories, the topic list, and reference
-  solutions. On an ingested course, it reads only what was added.
+  solutions. Runs in the background of the backend when a course is
+  created or files are added in the UI, or in an operator's command.
+  On an ingested course, it reads only what was added.
 
 | Living artifact
 | A file derived from the student rather than from the material:
@@ -70,8 +67,8 @@
   added, and read-only afterwards.
 
 | Operator
-| The person who runs an instance, provides its Anthropic API key,
-  creates its users, and adds the courses of its students.
+| The person who runs an instance, provides its API keys, and creates
+  its users.
 
 | Progress
 | `topics/<topic>/progress.json`: whether the introduction to one
@@ -91,8 +88,8 @@
   assessed.
 
 | Session
-| One chat: course-level or topic-level. Stored until the student
-  ends it; several can be open in tabs at once.
+| One chat on one topic, for tutoring and quizzing. Stored until the
+  student ends it; several can be open in tabs at once.
 
 | Source
 | A course PDF in `sources/`.
@@ -107,7 +104,7 @@
   past exam solutions > exam question.
 
 | Step
-| A part of a topic-level session: the introduction, or one task.
+| A part of a session: the introduction, or one task.
   Recorded in `progress.json` with `complete_step` when it is done;
   the chat then continues without its messages.
 
@@ -133,9 +130,8 @@
 
 | Topic list
 | `topics.json`: the topics in priority order, each with its priority,
-  topic directory, and sources. Orders the topic tree, gives the
-  course-level chat the priorities and tasks, and a topic-level chat
-  the block ranges of its tasks.
+  topic directory, and sources. Orders the topic tree and gives a
+  topic chat the block ranges of its tasks.
 
 | Topic source
 | One task of a topic in the exams or exercises: its ID, its label,
@@ -143,10 +139,7 @@
   only possibly belongs to the topic - and its block ranges, each in
   one conversion -
   the task, the figures, tables, and data it refers to, and its
-  solution. They are loaded into the topic's topic-level chat.
-
-| Topic-level chat
-| A session scoped to one topic, for tutoring and quizzing.
+  solution. They are loaded into the topic's chat.
 
 | Unit
 | The files of one past exam or one exercise sheet with its
@@ -157,4 +150,9 @@
 | v0
 | The first version. Its scope is chapter 1; what it does not include
   is listed under Out of Scope there.
+
+| Workspace
+| The tabs of one course - chats, Markdown files, and PDFs - in
+  groups beside the tree. Every course has its own; switching courses
+  hides the others' workspaces without closing their tabs.
 |===

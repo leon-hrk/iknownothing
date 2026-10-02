@@ -22,7 +22,7 @@
 | AI
 | Anthropic Messages API, called directly (see <<adr-anthropic>>).
   Ingestion converts the PDFs to Markdown with the Mistral OCR API and
-  extracts the topics from it (see <<adr-mistral-ocr>>). Topic-level
+  extracts the topics from it (see <<adr-mistral-ocr>>). Topic
   chats send their tasks as Markdown with the figures as images.
 
 | Storage
@@ -31,12 +31,13 @@
   <<adr-no-login>>).
 
 | Background work
-| None beyond a request: the operator's command runs ingestion (see
-  <<adr-operator-ingestion>>).
+| Ingestion runs as a background task of the backend process, at
+  most one per course; the operator's commands run it in their own
+  process (see <<adr-ui-ingestion>>). There is no job queue.
 
 | Retrieval
 | None. Every topic records the block ranges of its tasks, and a
-  topic-level chat loads them; there is no vector store and no
+  topic chat loads them; there is no vector store and no
   embedding pipeline.
 |===
 

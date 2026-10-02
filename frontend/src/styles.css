@@ -47,10 +47,9 @@ button {
 .app { display: flex; height: 100vh; }
 
 .dock { flex: none; width: 48px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 7px 0 10px; background: var(--panel); border-right: 1px solid var(--line); }
-.menu, .avatar { display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); color: var(--muted); }
-.menu { width: 28px; height: 28px; border-radius: 6px; }
+.avatar { display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); color: var(--muted); }
 .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--bg); font-size: 12px; font-weight: 600; color: var(--text); }
-.menu:hover, .avatar:hover { color: var(--accent); border-color: var(--accent); }
+.avatar:hover { color: var(--accent); border-color: var(--accent); }
 .user-menu { position: relative; }
 .users { position: absolute; left: 40px; bottom: 0; z-index: 10; min-width: 160px; list-style: none; margin: 0; padding: 4px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 16px rgb(0 0 0 / 0.15); }
 .users button { display: block; width: 100%; padding: 6px 10px; border-radius: 6px; }
@@ -154,3 +153,37 @@ li.usage { padding: 3px 6px 3px 26px; }
 }
 :root .dockview-theme-light .dv-tabs-and-actions-container { border-bottom: 1px solid var(--line); }
 .workspace .hint { text-align: center; }
+
+.rail { display: flex; flex-direction: column; align-items: center; gap: 8px; min-height: 0; overflow-y: auto; }
+.course-icon { display: flex; align-items: center; justify-content: center; flex: none; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); font-size: 12px; font-weight: 600; color: var(--muted); }
+.course-icon:hover { color: var(--accent); border-color: var(--accent); }
+.course-icon.active { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+.course-icon.ingesting { animation: pulse 1.6s ease-in-out infinite; }
+.course-icon.failed { border-color: var(--error); }
+.course-icon.add { font-size: 18px; font-weight: 400; border-style: dashed; }
+.context-menu { position: fixed; z-index: 30; min-width: 170px; list-style: none; margin: 0; padding: 4px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 16px rgb(0 0 0 / 0.15); }
+.context-menu button { display: block; width: 100%; padding: 6px 10px; border-radius: 6px; }
+.context-menu button:hover:not(:disabled) { background: var(--line); }
+.context-menu button:disabled { opacity: 0.4; cursor: default; }
+.context-menu .danger, .actions .danger { color: var(--error); }
+.actions .danger { border-color: var(--error); }
+.actions .danger:hover { background: var(--error); color: var(--bg); }
+.actions button:disabled { opacity: 0.4; cursor: default; }
+.sidebar .status { padding: 8px 14px; margin: 0; font-size: 13px; }
+.sidebar .status p { margin: 0 0 6px; }
+.retry { border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px; }
+.retry:hover { border-color: var(--accent); }
+.workspace { position: relative; }
+.course-tabs { position: absolute; inset: 0; }
+.course-tabs[hidden] { display: none; }
+.dialog.wide { width: min(560px, calc(100% - 32px)); max-height: calc(100vh - 32px); overflow-y: auto; }
+.field, .drop-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.label { font-size: 13px; font-weight: 600; }
+.field input, .field textarea { font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; resize: vertical; }
+.field input:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
+.drop { padding: 14px; text-align: center; font-size: 13px; color: var(--muted); border: 1px dashed var(--line); border-radius: 8px; cursor: pointer; }
+.drop:hover, .drop.over { border-color: var(--accent); color: var(--accent); }
+.picked { list-style: none; margin: 4px 0 0; padding: 0; font-size: 13px; }
+.picked li { display: flex; justify-content: space-between; gap: 8px; padding: 2px 4px; }
+.picked button { color: var(--muted); }
+.picked button:hover { color: var(--error); }

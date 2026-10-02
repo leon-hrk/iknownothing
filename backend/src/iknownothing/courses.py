@@ -1,4 +1,4 @@
-"""Courses: a user's courses and their status, the operator's course commands, usage, and open chats."""
+"""Courses: a user's courses and their status, creating and adding to them, usage, and open chats."""
 
 import json
 from pathlib import Path
@@ -32,15 +32,61 @@ def _material(src: Path) -> dict[str, list[Path]]:
     return sources
 
 
+Material = dict[str, list[tuple[str, bytes]]]
+"""PDFs by document type, each with its file name."""
+
+
+def _check(material: Material) -> None:
+    for doc_type, files in material.items():
+        if doc_type not in DOC_TYPES:
+            raise CourseError(f"unknown document type: {doc_type}; the types are {', '.join(DOC_TYPES)}")
+        for name, _ in files:
+            if "/" in name or name.startswith(".") or not name.endswith(".pdf"):
+                raise CourseError(f"not a .pdf file: {name}")
+
+
+def create(store: CourseStore, notes: str, material: Material) -> None:
+    """A new course from its notes and PDFs."""
+    if store.exists():
+        raise CourseError(f"course exists: {store.user}/{store.course}")
+    _check(material)
+    if not any(material.values()):
+        raise CourseError("no PDFs: a course needs past exams or exercise sheets")
+    store.write_text("notes.md", notes)
+    for doc_type, files in material.items():
+        for name, data in files:
+            store.write_bytes(f"sources/{doc_type}/{name}", data)
+
+
+def add(store: CourseStore, notes: str, material: Material) -> list[str]:
+    """Adds the PDFs the course does not have yet and replaces its notes; returns the PDFs added. A PDF the course
+    has must be unchanged."""
+    _check(material)
+    added = []
+    for doc_type, files in material.items():
+        for name, data in files:
+            rel = f"sources/{doc_type}/{name}"
+            if not store.exists(rel):
+                added.append((rel, data))
+            elif store.read_bytes(rel) != data:
+                raise CourseError(f"changed: {name}; a PDF of a course cannot be replaced")
+    store.write_text("notes.md", notes)
+    for rel, data in added:
+        store.write_bytes(rel, data)
+    return [rel for rel, _ in added]
+
+
+def _read(src: Path) -> tuple[str, Material]:
+    sources = _material(src)
+    return ((src / "notes.md").read_text(encoding="utf-8"),
+            {t: [(f.name, f.read_bytes()) for f in files] for t, files in sources.items()})
+
+
 def add_from_dir(store: CourseStore, src: Path) -> None:
     """Copies the course material in `src` - notes.md, exams/*.pdf, exercises/*.pdf - into a new course."""
     if store.exists():
         raise CourseError(f"course exists: {store.user}/{store.course}")
-    sources = _material(src)
-    store.write_text("notes.md", (src / "notes.md").read_text(encoding="utf-8"))
-    for doc_type, files in sources.items():
-        for f in files:
-            store.write_bytes(f"sources/{doc_type}/{f.name}", f.read_bytes())
+    create(store, *_read(src))
 
 
 def update_from_dir(store: CourseStore, src: Path) -> list[str]:
@@ -48,32 +94,16 @@ def update_from_dir(store: CourseStore, src: Path) -> list[str]:
     the course has must be unchanged."""
     if not store.exists("topics.json"):
         raise CourseError(f"not an ingested course: {store.user}/{store.course}")
-    sources = _material(src)
-    added = []
-    for doc_type, files in sources.items():
-        for f in files:
-            rel = f"sources/{doc_type}/{f.name}"
-            if not store.exists(rel):
-                added.append(rel)
-            elif store.read_bytes(rel) != f.read_bytes():
-                raise CourseError(f"changed: {f}; a PDF of an ingested course cannot be replaced")
-    store.write_text("notes.md", (src / "notes.md").read_text(encoding="utf-8"))
-    for rel in added:
-        store.write_bytes(rel, (src / rel.removeprefix("sources/")).read_bytes())
-    return added
+    return add(store, *_read(src))
 
 
 USAGE = "usage.json"
 _NO_USAGE = {"input": 0, "cached": 0, "output": 0, "eur": 0.0}
 
 
-def _usage_file(directory: str) -> str:
-    return f"{directory}/{USAGE}" if directory else USAGE
-
-
-def usage(store: CourseStore, directory: str = "") -> dict[str, int]:
-    """Tokens and approximate euros spent on the chats of a topic directory, or of the course-level chat for `""`."""
-    rel = _usage_file(directory)
+def usage(store: CourseStore, directory: str) -> dict[str, int]:
+    """Tokens and approximate euros spent on the chats of a topic directory."""
+    rel = f"{directory}/{USAGE}"
     return _NO_USAGE | (store.read_json(rel) if store.exists(rel) else {})
 
 
@@ -82,18 +112,18 @@ async def add_usage(store: CourseStore, directory: str, tokens: dict[str, float]
         total = _NO_USAGE | (json.loads(text) if text else {})
         return json.dumps({k: total[k] + tokens[k] for k in total}) + "\n"
 
-    await store.update_text(_usage_file(directory), change)
+    await store.update_text(f"{directory}/{USAGE}", change)
 
 
 CHAT = "chat.json"
 
 
 def _chat_file(directory: str) -> str:
-    return f"{directory}/{CHAT}" if directory else CHAT
+    return f"{directory}/{CHAT}"
 
 
-def chat(store: CourseStore, directory: str = "") -> dict:
-    """The open chat of a topic directory, or the course-level chat for `""`: its transcript and usage."""
+def chat(store: CourseStore, directory: str) -> dict:
+    """The open chat of a topic directory: its transcript and usage."""
     rel = _chat_file(directory)
     return {"transcript": [], "usage": _NO_USAGE} | (store.read_json(rel) if store.exists(rel) else {})
 
@@ -105,7 +135,7 @@ def save_chat(store: CourseStore, directory: str, transcript: list[dict], tokens
                                              "usage": {k: total[k] + tokens[k] for k in total}})
 
 
-def end_chat(store: CourseStore, directory: str = "") -> list[dict]:
+def end_chat(store: CourseStore, directory: str) -> list[dict]:
     """Removes the open chat; returns its transcript."""
     transcript = chat(store, directory)["transcript"]
     store.delete(_chat_file(directory))

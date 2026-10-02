@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from iknownothing.course_store import CourseStore
-from iknownothing.tutor.chat import CONTINUE, TutorError, course_context, progress, reply, step_start, topic_context
+from iknownothing.tutor.chat import CONTINUE, TutorError, progress, reply, step_start, topic_context
 from iknownothing.tutor.cheatsheet import CheatsheetError, parse, set_entry
 
 
@@ -189,18 +189,3 @@ def test_reply_failure_keeps_transcript(store):
     with pytest.raises(TutorError):
         run_reply(store, FakeAI(stop_reason="refusal"), transcript)
     assert transcript == [{"role": "user", "content": "quiz me"}]
-
-
-def test_course_chat(store):
-    store.write_json("topics/laplace/progress.json", {"introduction": True, "tasks": {
-        "Klausur 2023, Aufgabe 2b": {"done": True, "note": "can transform"}}})
-    ctx = course_context(store, "German")
-    assert len(ctx) == 1 and "cache_control" in ctx[0]
-    assert '<topic name="Laplace" priority="high">' in ctx[0]["text"]
-    assert "- Übung 1, Aufgabe 1 (Tier B)" in ctx[0]["text"] and "can transform" in ctx[0]["text"]
-
-    ai = FakeAI()
-    transcript = [{"role": "user", "content": "what next?"}]
-    run_reply(store, ai, transcript, slug=None)
-    assert ai.request_types == ["planning", "planning"]
-    assert [t["name"] for t in ai.tools[0]] == ["update_cheatsheet"]

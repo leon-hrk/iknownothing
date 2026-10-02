@@ -15,15 +15,16 @@ include::diagrams/building-blocks-level1.puml[]
 | Building block | Responsibility
 
 | Frontend
-| React single-page application in the browser: user choice, course
-  tree, and a workspace of tabs and split groups for chats, Markdown
-  files, and PDFs. Talks to the backend over the HTTP API only.
+| React single-page application in the browser: user choice, a rail
+  of courses, the tree of the open course, a workspace of tabs and
+  split groups per course for chats, Markdown files, and PDFs, and
+  the dialog that creates a course or adds files to it. Talks to the backend over the HTTP API only.
 
 | Backend
 | FastAPI application serving the HTTP API. Handles requests, streams
-  chat replies as Server-Sent Events, and stores open chats. Its
-  image also holds the operator's user and
-  course commands (see <<adr-operator-ingestion>>).
+  chat replies as Server-Sent Events, stores open chats, and runs
+  ingestions as background tasks. Its image also holds the
+  operator's user and course commands (see <<adr-ui-ingestion>>).
 
 | Filesystem
 | Users and their course content under `data/<user>/`, laid out as described in
@@ -35,7 +36,8 @@ The frontend is not decomposed further.
 === Level 2: Backend
 
 The HTTP API and the operator's commands share one set of modules;
-Ingestion runs only in a command.
+Ingestion runs as a background task of the API process or in a
+command.
 
 [plantuml, target=building-blocks-level2, format=svg]
 ....
@@ -54,11 +56,12 @@ include::diagrams/building-blocks-level2.puml[]
 | Courses
 | Listing a user's courses with their status - ready or not
   ingested, read from the files - and reading course files through
-  the Course Store. The operator's course commands: adding a course
-  for a user from a directory of PDFs and `notes.md` and ingesting it,
-  adding the new PDFs of that directory to an ingested course and
-  ingesting them, resuming a failed ingestion, and removing a
-  course.
+  the Course Store. Creating a course from its notes and PDFs, adding
+  the PDFs a course lacks and replacing its notes - from an upload or
+  from a directory - and removing a course. The operator's course
+  commands: adding a course for a user from a directory of PDFs and
+  `notes.md` and ingesting it, adding the new PDFs of that directory
+  and ingesting them, resuming an ingestion, and removing a course.
 | -
 
 | Course Store
@@ -71,13 +74,16 @@ include::diagrams/building-blocks-level2.puml[]
 | The ingestion pipeline: conversion, topic extraction, topic files,
   topic list, and reference solutions. Splits conversions into blocks
   and assembles a topic's passages with their figures, for itself and
-  the Tutor. Runs in the operator's command; each step writes its result
-  through the Course Store before the next one starts and is printed
-  as it starts (see <<runtime-ingestion>>).
+  the Tutor. Runs as a background task of the API process, at most
+  one per course, keeping the step it is at for the course list and
+  writing a failure to `ingestion/error.txt`; or in the operator's
+  command, which prints each step. Each step writes its result
+  through the Course Store before the next one starts (see
+  <<runtime-ingestion>>).
 | -
 
 | Tutor
-| Course-level and topic-level chats: assembles each chat's context
+| Topic chats: assembles each chat's context
   from the Course Store, a topic's tasks included, streams replies as Server-Sent Events,
   executes the chat tools - recording a completed step in the topic's
   `progress.json` - and stores the open chat after each reply.
@@ -108,5 +114,5 @@ include::diagrams/building-blocks-level2.puml[]
 
 Every prompt is a Markdown file in the backend source tree, one per
 task (topic extraction, task assignment, task grouping, solution
-writing, planning, tutoring). The AI Client loads them by name; other
+writing, tutoring). The AI Client loads them by name; other
 modules never build prompt text inline.

@@ -8,11 +8,10 @@
 
 All data is in the filesystem: a user is a directory `data/<user>/`,
 and a course is a directory in it holding the course PDFs and all
-Markdown and JSON files, provided by the operator, derived, or
-written by the tutor. There is no database.
+Markdown and JSON files, uploaded, derived, or written by the
+tutor. There is no database.
 
-Only open chats are stored: the course and every topic keep one
-`chat.json` with the transcript and token usage of their open session,
+Only open chats are stored: every topic keeps one `chat.json` with the transcript and token usage of their open session,
 removed when the session ends. What lasts from a chat is in
 `progress.json` and `cheatsheet.md`.
 
@@ -31,21 +30,21 @@ data/<user>/<course>/
 │       └── <file>/         figures of the conversion
 ├── notes.md                remarks on the course
 ├── cheatsheet.md           living artifact
-├── usage.json              tokens of the course-level chats
-├── chat.json               open course-level chat
 ├── topics.json             topic list
 ├── ingestion/              intermediate pipeline results
-│   └── topics.json         topics as extracted, and the files read
+│   ├── topics.json         topics as extracted, and the files read
+│   └── error.txt           why the last ingestion failed
 └── topics/<topic>/
     ├── topic.md            topic artifact
     ├── solutions.md        reference solutions
     ├── progress.json       living artifact
     ├── usage.json          tokens of the topic's chats
-    └── chat.json           open topic-level chat
+    └── chat.json           open chat
 ....
 
 The subdirectory of `sources/` is the document type, given by the
-subdirectory the operator puts the file in (`exams/`, `exercises/`);
+drop zone a PDF is uploaded in or the subdirectory the operator puts
+it in (`exams/`, `exercises/`);
 it is what the pipeline's source priority is applied to.
 
 The files fall into three classes:
@@ -56,12 +55,12 @@ The files fall into three classes:
 
 | Input
 | `sources/*`, `notes.md`
-| The operator's course command
+| An upload in the UI or the operator's course command
 
 | Derived
 | `sources/*/<file>.md`, `sources/*/<file>/`, `topics.json`,
   `topic.md`, `solutions.md`, `ingestion/`
-| Ingestion, once
+| Ingestion
 
 | Student state
 | `cheatsheet.md`, `progress.json`, `usage.json`, `chat.json`
@@ -174,7 +173,7 @@ During ingestion the topics are data, not Markdown. Ingestion renders
 * `topics.json` stores every source with an ID, `<slug>/<n>`, and
   every block range with the pages it spans, read from the page
   markers; `topic.md` names these pages.
-* For a topic-level chat, the Tutor loads every source of the topic
+* For a topic chat, the Tutor loads every source of the topic
   in a `<source>` element with its ID, label, and tier, and in it
   every block range in a `<passage>` element with its PDF and pages.
   Figures in the blocks go as images where they stand, each after its
@@ -194,8 +193,8 @@ The last step of ingestion writes a reference solution for every
 Tier A or B task whose blocks hold no solution (see
 <<adr-reference-solutions>>).
 
-* One request per topic sends its sources exactly as a topic-level
-  chat gets them, figures included, with its `topic.md` and the
+* One request per topic sends its sources exactly as a topic chat
+  gets them, figures included, with its `topic.md` and the
   course language. The model finds the tasks without a solution
   itself and returns a solution for each with its task label, in the
   method, notation, and solution style of the topic's solved tasks,
@@ -223,9 +222,10 @@ Tier A or B task whose blocks hold no solution (see
 
 ==== Users and Courses
 
-The operator manages users and courses with the command line of the
-application image; the UI has no login, no registration, no account
-settings, and no upload.
+The operator manages users with the command line of the application
+image; the UI has no login, no registration, and no account
+settings. Courses are created, extended, and deleted by their user in
+the UI, or by the operator from the command line.
 
 ....
 docker compose exec backend iknownothing user add <name>
@@ -252,6 +252,27 @@ docker compose exec backend iknownothing course remove <user> <course>
 * `ingest` runs the ingestion steps whose results are missing, e.g.
   after a failure.
 * `remove` deletes the course with the student's state.
+
+The HTTP API for courses, served for the user of the request:
+
+* `GET /api/courses` lists the user's courses, each with its status
+  (ready or not ingested), the step of a running ingestion, and why
+  the last ingestion failed.
+* `POST /api/courses` creates a course from a multipart upload of its
+  name, notes, and the PDFs of past exams and exercise sheets, and
+  starts its ingestion. A course name has lowercase letters, digits,
+  hyphens, and underscores.
+* `POST /api/courses/<course>/files` adds the uploaded PDFs the course
+  does not have yet, replaces its notes, and starts the ingestion. A
+  PDF whose content differs from the course's copy of the same name
+  is refused.
+* `POST /api/courses/<course>/ingestion` starts the ingestion again.
+* `DELETE /api/courses/<course>` deletes the course with everything
+  in it.
+
+Adding files, starting an ingestion, and deleting are refused while
+the course is being ingested. The mock user's sample course cannot be
+changed.
 
 The frontend lists all users; the student picks themselves, and the
 backend sets the cookie `ikn_user` (`HttpOnly`, `SameSite=Strict`)
@@ -290,8 +311,7 @@ Every request type runs on one of two model tiers (see
 | Task assignment (exercise sheets) | large
 | Task grouping | large
 | Solution writing | large
-| Tutoring (topic-level chat), including grading | small
-| Planning (course-level chat) | small
+| Tutoring (topic chat), including grading | small
 |===
 
 A model with adaptive thinking decides how much to think; a model
@@ -300,9 +320,8 @@ without it thinks up to a fixed budget per request.
 Ingestion requests ask for their reply in a JSON schema. A request
 the model declines is rerun server-side on a fallback model.
 
-Chat requests put the context of the chat first - for a topic-level
-chat, its tasks and reference solutions before everything else - and
-mark it for
+Chat requests put the context of the chat first - the topic's tasks
+and reference solutions before everything else - and mark it for
 prompt caching, since every message sends it again.
 
 The AI Client logs model and token usage of every request with user,
@@ -311,18 +330,19 @@ conversion. The cost of an ingestion is read from this log.
 
 Every chat request adds its input tokens, cached ones included, its
 cached input tokens, its output tokens, and its approximate cost in
-euros to a `usage.json`: the topic's for topic-level chats, the
-course's for course-level chats. The cost is computed from Anthropic's list prices
-per model and a fixed exchange rate, both in the backend source. The
-UI shows these totals, and each chat reply reports its own; the
+euros to the topic's `usage.json`. The cost is computed from
+Anthropic's list prices per model and a fixed exchange rate, both in
+the backend source. The UI shows these totals and their sum for the
+course, and each chat reply reports its own; the
 open session's total is kept in its `chat.json`.
 
 === Concurrency
 
 The backend is asynchronous throughout. Every call to the Anthropic
 API and every other wait on I/O is non-blocking, so one backend
-process holds many streaming chats at once.
-Blocking work, such as reading and writing files, runs off the
+process holds many streaming chats at once, beside the ingestions it
+runs as background tasks - at most one per course, each tracked in
+memory by the step it is at. Blocking work, such as reading and writing files, runs off the
 event loop.
 
 === Chat Tools
@@ -333,22 +353,19 @@ reaches outside the requesting user's course. The tools' schemas are
 strict and the same in every chat; the Tutor checks values that
 depend on the course.
 
-[cols="1,1,3", options="header"]
+[cols="1,3", options="header"]
 |===
-| Tool | Offered in | Effect
+| Tool | Effect
 
 | `update_cheatsheet`
-| All chats
 | Adds, changes, or removes one entry in a section of
   `cheatsheet.md`.
 
 | `pose_task`
-| Topic-level
 | Marks a task in the reply with its gradability tier; the chat shows
   the task and its tier.
 
 | `complete_step`
-| Topic-level
 | Ends a step. Takes the step - `introduction` or one of the topic's
   Tier A and B tasks; any other step is rejected with the list of
   valid ones - and a note of one sentence, empty when there is

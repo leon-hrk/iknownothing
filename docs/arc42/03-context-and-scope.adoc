@@ -19,14 +19,15 @@ include::diagrams/business-context.puml[]
 | Partner | Input to the system | Output from the system
 
 | Student
-| Choice of user, chat messages and answers, self-ratings for Tier B
-  tasks
-| Tutoring and grading in chat, all Markdown files of the course
-  for reading
+| Choice of user, course PDFs and notes, chat messages and answers,
+  self-ratings for Tier B tasks
+| Tutoring and grading in chat, the state of each ingestion, all
+  Markdown files of the course for reading
 
 | Operator
 | Deployment, instance configuration including the Anthropic and
-  Mistral API keys, users, course PDFs and `notes.md` for each student
+  Mistral API keys, users, and optionally course PDFs and `notes.md`
+  through the command line
 | A running instance
 
 | Anthropic API
@@ -55,12 +56,14 @@ Anthropic API and the Mistral OCR API.
 | Web UI over a JSON HTTP API. A chat message is a `POST` carrying
   the chat's transcript, whose response streams the reply and its tool events as Server-Sent
   Events. Open chats are loaded and ended with their own requests.
+  Course PDFs and notes are uploaded as multipart requests.
 
 | Operator
 | Docker host
 | docker-compose, `.env`, and the user and course commands of
-  the application image (chapter 8). Course material is read from the
-  directory `courses/` next to the compose file.
+  the application image (chapter 8). Course material for the course
+  commands is read from the directory `courses/` next to the compose
+  file.
 
 | Anthropic API
 | HTTPS

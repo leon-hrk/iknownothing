@@ -1,4 +1,5 @@
-export type CourseSummary = { name: string; status: string };
+/** `ingestion`: the step a running ingestion is at; `error`: why the last ingestion failed. */
+export type CourseSummary = { name: string; status: string; ingestion: string | null; error: string | null };
 
 /** Tokens sent to the model, cached ones included; of these, the cached ones; tokens it replied with; approximate cost. */
 export type Usage = { input: number; cached: number; output: number; eur: number };
@@ -11,7 +12,7 @@ export const addUsage = (a: Usage, b: Usage): Usage =>
 export type Topic = { slug: string; name: string; priority: string; files: string[]; usage: Usage };
 
 /** `sources`: the source PDFs, `sources/<type>/<file>.pdf`, and their Markdown conversions, `<file>.md`. */
-export type Course = { name: string; status: string; topics: Topic[]; files: string[]; sources: string[]; usage: Usage };
+export type Course = { name: string; status: string; topics: Topic[]; files: string[]; sources: string[] };
 
 /** A content block as the Messages API has it: text, tool use, tool result, thinking. */
 export type Block = { type: string; text?: string; name?: string; input?: Record<string, string>; [key: string]: unknown };
@@ -69,13 +70,41 @@ export const getCourse = (course: string) => json<Course>(base(course));
 
 export const fileUrl = (course: string, path: string) => `${base(course)}/files/${path}`;
 
+function material(notes: string, exams: File[], exercises: File[]): FormData {
+  const form = new FormData();
+  form.append("notes", notes);
+  for (const f of exams) form.append("exams", f);
+  for (const f of exercises) form.append("exercises", f);
+  return form;
+}
+
+/** Creates a course from its notes and PDFs; its ingestion starts. */
+export async function createCourse(name: string, notes: string, exams: File[], exercises: File[]): Promise<void> {
+  const form = material(notes, exams, exercises);
+  form.append("name", name);
+  await request("/api/courses", { method: "POST", body: form });
+}
+
+/** Adds PDFs to a course and replaces its notes; the ingestion of what is new starts. */
+export async function addFiles(course: string, notes: string, exams: File[], exercises: File[]): Promise<void> {
+  await request(`${base(course)}/files`, { method: "POST", body: material(notes, exams, exercises) });
+}
+
+export async function retryIngestion(course: string): Promise<void> {
+  await request(`${base(course)}/ingestion`, { method: "POST" });
+}
+
+export async function deleteCourse(course: string): Promise<void> {
+  await request(base(course), { method: "DELETE" });
+}
+
 export async function readFile(course: string, path: string): Promise<string> {
   return (await request(fileUrl(course, path))).text();
 }
 
 /** Streams the reply to a transcript that ends with the student's message. */
 export async function* chat(
-  course: string, topic: string | null, transcript: Message[], signal: AbortSignal,
+  course: string, topic: string, transcript: Message[], signal: AbortSignal,
 ): AsyncGenerator<ChatEvent> {
   const r = await request(`${base(course)}/chat`, {
     method: "POST",
@@ -101,14 +130,13 @@ export async function* chat(
   }
 }
 
-const chatUrl = (course: string, topic: string | null) =>
-  `${base(course)}/chat${topic === null ? "" : `?topic=${encodeURIComponent(topic)}`}`;
+const chatUrl = (course: string, topic: string) => `${base(course)}/chat?topic=${encodeURIComponent(topic)}`;
 
-/** The open chat of a topic, or the course-level chat for `null`. */
-export const getChat = (course: string, topic: string | null) =>
+/** The open chat of a topic. */
+export const getChat = (course: string, topic: string) =>
   json<{ transcript: Message[]; usage: Usage }>(chatUrl(course, topic));
 
 /** Ends the open chat. */
-export async function endChat(course: string, topic: string | null): Promise<void> {
+export async function endChat(course: string, topic: string): Promise<void> {
   await request(chatUrl(course, topic), { method: "DELETE" });
 }

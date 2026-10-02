@@ -11,17 +11,19 @@
 include::diagrams/runtime-ingestion.puml[]
 ....
 
-. The operator puts the course's PDFs into `courses/<dir>/exams/` and
-  `courses/<dir>/exercises/` next to the compose file, with
-  `courses/<dir>/notes.md`, and runs `course add <user> <course>
-  [<dir>]`; `<dir>` defaults to the course name. Courses refuses an
-  unknown user, an existing course, and a directory that holds
-  anything but `notes.md` and PDFs in `exams/` and `exercises/`, lacks
-  `notes.md`, or has no PDF. It copies the files through the Course Store under
-  `sources/<type>/` and as `notes.md`.
-. Courses runs Ingestion in the command's process. Ingestion executes
-  the steps below in order, prints each as it starts, and writes its
-  results through the Course Store.
+. The student clicks *+* in the rail, enters the course name, drops
+  the PDFs of past exams and exercise sheets on their zones, writes
+  the notes, and confirms. The frontend posts them to
+  `POST /api/courses`. Courses refuses an invalid name, an existing
+  course, a file that is not a PDF, and an upload without PDFs. It
+  writes the files through the Course Store under `sources/<type>/`
+  and as `notes.md`, starts Ingestion as a background task of the
+  backend process, and answers at once.
+. Ingestion executes the steps below in order and writes its results
+  through the Course Store. The step it is at is kept in memory; the
+  course list carries it, and the frontend asks for the list every
+  few seconds while an ingestion runs and shows the step in the tree.
+  When the ingestion ends, the frontend loads the course again.
 .. *Conversion.* Every exam and exercise PDF without a Markdown file
    goes to the OCR Client, a few at once. Ingestion writes the figures
    of each page to `sources/<type>/<file>/`, then
@@ -50,29 +52,43 @@ include::diagrams/runtime-ingestion.puml[]
 .. *Solutions.* Every topic with Tier A or B tasks whose tasks
    differ from those its reference solutions were written for - or
    that has none yet - goes in a request of its own, several at
-   once, with its tasks as a topic-level chat gets them - figures
+   once, with its tasks as a topic chat gets them - figures
    included - its `topic.md`, and the course language. The reply
    holds a reference solution for every task whose blocks hold none;
    Ingestion checks the task labels, writes
    `topics/<topic>/solutions.md` if there is any and removes it
    otherwise, and records the topic's tasks in
    `ingestion/topics.json`.
-. The command prints the token usage and the pages converted.
+. A failure is written to `ingestion/error.txt`, which the course
+  list carries; the next ingestion of the course removes it.
+
+The operator can create a course from the command line instead: they
+put the course's PDFs into `courses/<dir>/exams/` and
+`courses/<dir>/exercises/` next to the compose file, with
+`courses/<dir>/notes.md`, and run `course add <user> <course>
+[<dir>]`; `<dir>` defaults to the course name. Courses refuses an
+unknown user, an existing course, and a directory that holds anything
+but `notes.md` and PDFs in `exams/` and `exercises/`, lacks
+`notes.md`, or has no PDF. It copies the files and runs Ingestion in
+the command's process, which prints every step as it starts, then the
+token usage and the pages converted.
 
 Topic extraction applies the fallback strategies (chapter 1)
 according to the number of past exams in the course.
 
 ==== Course Update
 
-. The operator puts further PDFs into `courses/<dir>/` - a past exam,
-  an exercise sheet, or the solutions to one the course has - and
-  runs `course update <user> <course> [<dir>]`. Courses checks the
-  directory as for `course add` and refuses a course that is not
-  ingested and a PDF whose content differs from the course's copy.
-  It copies `notes.md` and every PDF the course does not have yet,
-  and prints them.
-. Courses runs Ingestion, which executes the steps above on what is
-  new:
+. The student chooses *Add files* in the menu of a course icon, drops
+  further PDFs - a past exam, an exercise sheet, or the solutions to
+  one the course has - and changes the notes if needed. The frontend
+  posts them to `POST /api/courses/<course>/files`. Courses refuses
+  a course that is being ingested and a PDF whose content differs
+  from the course's copy of the same name. It writes every PDF the
+  course does not have yet, replaces `notes.md`, and starts Ingestion
+  in the background as above. From the command line, `course update
+  <user> <course> [<dir>]` does the same with the PDFs of
+  `courses/<dir>/`, for an ingested course.
+. Ingestion executes the steps above on what is new:
 ** A new past exam is extracted against the topics so far; its tasks
    go to existing topics or to new ones, and existing topics may
    change. A new exercise sheet is assigned.
@@ -94,12 +110,19 @@ according to the number of past exams in the course.
   and skips work that is already done.
 * The AI Client retries transient API errors (rate limit, overload).
 * When retries are exhausted or the error is permanent (invalid API
-  key, exhausted credit), the command fails with the reason. `course
-  ingest <user> <course>` resumes at the first missing result.
+  key, exhausted credit), the ingestion fails with the reason: the
+  tree shows it with *Retry*, the course icon gets a red border. Retry
+  (`POST /api/courses/<course>/ingestion`, or `course ingest <user>
+  <course>`) resumes at the first missing result.
+* An ingestion running when the backend stops is lost without an
+  error; the course shows *Ingest* if it has no topics yet, and
+  *Retry ingestion* in its menu resumes it.
+* At most one ingestion runs per course; starting a second, adding
+  files, or deleting the course while one runs is refused.
 * `topics.json` is written once the topics are complete; until then
-  the course is listed as not ingested and does not open. A course
-  whose reference solutions failed opens without them for the topics
-  not done; `course ingest` writes them.
+  the course is listed as not ingested and has no topics to open. A
+  course whose reference solutions failed opens without them for the
+  topics not done; a retry writes them.
 
 [[runtime-chat-message]]
 === Chat Message
@@ -113,14 +136,14 @@ The frontend holds the transcript and sends it with every message;
 the backend stores it after every reply, so an open chat survives a
 reload. Opening a chat loads its stored transcript.
 
-. The frontend posts the chat's scope (the course or one topic), its
-  transcript so far, and the student's message.
-. Tutor assembles the context for the scope through the Course Store
-  (chapter 1, Tutoring Sessions) - for a topic-level chat, its tasks
-  first (<<_topic_extraction,chapter 8>>) - and sends it with the transcript and
-  the <<_chat_tools,chat tools>> through the AI Client. Of a
-  topic-level transcript, only the messages since the last completed
-  step are sent.
+. The frontend posts the chat's topic, its transcript so far, and
+  the student's message.
+. Tutor assembles the topic's context through the Course Store
+  (chapter 1, Tutoring Sessions) - its tasks first
+  (<<_topic_extraction,chapter 8>>) - and sends it with the
+  transcript and the <<_chat_tools,chat tools>> through the AI
+  Client. Of the transcript, only the messages since the last
+  completed step are sent.
 . The reply streams to the frontend as Server-Sent Events: the
   summary of the model's thinking, the text, and the start of each
   tool call. Until the text arrives, the frontend shows the thinking
@@ -136,10 +159,10 @@ reload. Opening a chat loads its stored transcript.
   progress and sends the follow-up request without the step's
   messages.
 . Tutor stores the transcript with the reply and the session's token
-  usage in the scope's `chat.json`.
+  usage in the topic's `chat.json`.
 . The frontend appends the reply and its tool calls to the
   transcript.
 
 A session ends when the student chooses *End session* and confirms.
-The frontend asks the backend to end the scope's chat, and Tutor
+The frontend asks the backend to end the topic's chat, and Tutor
 removes its `chat.json`. The progress recorded in its steps stays.

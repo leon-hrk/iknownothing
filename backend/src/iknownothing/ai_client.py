@@ -19,7 +19,6 @@ TIERS = {
     "task_assignment": "large",
     "task_grouping": "large",
     "solution_writing": "large",
-    "planning": "small",
     "tutoring": "small",
 }
 

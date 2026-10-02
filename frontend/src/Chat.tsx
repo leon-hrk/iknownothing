@@ -4,7 +4,7 @@ import { type Block, chat, fileUrl, type Message, type Usage } from "./api";
 import Markdown from "./Markdown";
 
 export type OpenChat = {
-  id: number; course: string; topic: string | null; transcript: Message[]; usage: Usage;
+  id: number; course: string; topic: string; transcript: Message[]; usage: Usage;
 };
 
 type Part = { kind: "thinking" | "text" | "note"; text: string };
@@ -139,7 +139,7 @@ export default function Chat({ open, update, onCheatsheet, onUsage, onBusy, onOp
       <div className="messages" ref={messages} aria-busy={!!live}>
         {open.transcript.length === 0 && (
           <p className="hint">
-            {open.topic ? "Ask for an introduction, or say \"quiz me\"." : "Ask where you stand and what to work on next."}
+            Ask for an introduction, or say "quiz me".
           </p>
         )}
         {open.transcript.map((m, i) => <Turn key={i} message={m} course={open.course} onOpen={onOpen} />)}
