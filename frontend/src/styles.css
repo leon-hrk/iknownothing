@@ -112,6 +112,7 @@ li.usage { padding: 3px 6px 3px 26px; }
 .composer button:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: var(--bg); }
 
 .reader { flex: 1; overflow-y: auto; padding: 16px max(16px, calc(50% - 380px)); }
+.pdf .react-pdf__Page { margin-bottom: 12px; box-shadow: 0 1px 4px rgb(0 0 0 / 0.2); }
 
 .markdown { line-height: 1.55; overflow-wrap: anywhere; }
 .markdown pre { background: var(--panel); padding: 8px 12px; border-radius: 8px; overflow-x: auto; }

@@ -70,7 +70,7 @@ The files fall into three classes:
 
 The student edits no file. Every Markdown file is shown rendered and
 read-only in the UI, the conversions of the sources with their figures
-in place; the PDFs are not shown.
+in place. The source PDFs are shown with pdf.js in the browser.
 
 Math in Markdown is written as `+\(...\)+` inline and as `+$$...$$+` or
 `+\[...\]+` on lines of its own. A single `+$+` is text, so amounts of

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import {
   addUsage, chooseUser, type Course, type CourseSummary, currentUser, endChat, fileUrl, getChat, getCourse, listCourses,
@@ -8,7 +8,9 @@ import Chat, { type OpenChat } from "./Chat";
 import Markdown from "./Markdown";
 import Tokens from "./Tokens";
 
-/** A Markdown file of a course, shown in the document column. */
+const Pdf = lazy(() => import("./Pdf"));
+
+/** A Markdown file or a source PDF of a course, shown in the document column. */
 type Doc = { course: string; path: string; title: string };
 
 /** What a reload restores, remembered per user in the browser. */
@@ -46,7 +48,9 @@ const CHEATSHEET = "cheatsheet.md";
 function Document({ doc, version }: { doc: Doc; version: number }) {
   const [text, setText] = useState<string | null>(null);
   const dir = doc.path.slice(0, doc.path.lastIndexOf("/") + 1);
+  const pdf = doc.path.endsWith(".pdf");
   useEffect(() => {
+    if (pdf) return;
     let current = true;
     readFile(doc.course, doc.path)
       .then((t) => current && setText(t))
@@ -57,7 +61,8 @@ function Document({ doc, version }: { doc: Doc; version: number }) {
     <aside className="document">
       <header><span className="title" title={doc.title}>{doc.title}</span></header>
       <div className="reader">
-        {text === null ? <div className="pending">…</div>
+        {pdf ? <Suspense fallback={<div className="pending">…</div>}><Pdf url={fileUrl(doc.course, doc.path)} /></Suspense>
+          : text === null ? <div className="pending">…</div>
           : text.trim() ? <Markdown text={text} resolve={(src) => fileUrl(doc.course, `${dir}${src}`)} />
           : <p className="muted">{doc.path === CHEATSHEET ? "No cheatsheet yet." : "This file is empty."}</p>}
       </div>
@@ -238,7 +243,7 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
     );
   }
 
-  /** The converted sources, grouped by document type. */
+  /** The source PDFs and their conversions, grouped by document type. */
   function sources(course: string, paths: string[]) {
     const key = `${course}:sources`;
     const types = [...new Set(paths.map((p) => p.split("/")[1]))];
@@ -259,7 +264,7 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
                 {expanded.has(`${key}/${type}`) && (
                   <ul>
                     {paths.filter((p) => p.split("/")[1] === type).map((p) => {
-                      const name = p.split("/").at(-1)!.replace(/\.md$/, "");
+                      const name = p.split("/").at(-1)!;
                       return file(course, p, name, `${course} · ${type}/${name}`);
                     })}
                   </ul>

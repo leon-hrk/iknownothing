@@ -10,7 +10,7 @@ export const addUsage = (a: Usage, b: Usage): Usage =>
 
 export type Topic = { slug: string; name: string; priority: string; files: string[]; usage: Usage };
 
-/** `sources`: the Markdown of the converted source PDFs, `sources/<type>/<file>.md`. */
+/** `sources`: the source PDFs, `sources/<type>/<file>.pdf`, and their Markdown conversions, `<file>.md`. */
 export type Course = { name: string; status: string; topics: Topic[]; files: string[]; sources: string[]; usage: Usage };
 
 /** A content block as the Messages API has it: text, tool use, tool result, thinking. */

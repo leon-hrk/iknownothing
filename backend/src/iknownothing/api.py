@@ -104,8 +104,8 @@ def list_courses(user: str = Depends(current_user)) -> list[dict]:
 
 @app.get("/api/courses/{course}")
 def get_course(store: CourseStore = Depends(course_store)) -> dict:
-    """The course with its topics in priority order, each with the Markdown files of its directory, and the
-    Markdown of its converted sources.
+    """The course with its topics in priority order, each with the Markdown files of its directory, and its
+    sources: the PDFs and their Markdown conversions.
 
     `usage` holds the tokens spent on the chats of a topic, finalizations included, and on the
     course-level chat.
@@ -116,20 +116,21 @@ def get_course(store: CourseStore = Depends(course_store)) -> dict:
             files = sorted(p.name for p in store.path(t["dir"]).glob("*.md"))
             topics.append({"slug": t["slug"], "name": t["name"], "priority": t["priority"],
                            "files": [f"{t['dir']}/{f}" for f in files], "usage": courses.usage(store, t["dir"])})
-    sources = sorted((p.relative_to(store.root).as_posix() for p in store.path("sources").glob("*/*.md")),
+    sources = sorted((p.relative_to(store.root).as_posix() for p in store.path("sources").glob("*/*")
+                      if p.suffix in (".md", ".pdf")),
                      key=lambda f: (f.split("/")[1], unit(f), f))
     return {"name": store.course, "status": courses.status(store), "topics": topics,
             "files": [f for f in ("notes.md", "cheatsheet.md") if store.exists(f)], "sources": sources,
             "usage": courses.usage(store)}
 
 
-IMAGES = {".jpeg": "image/jpeg", ".jpg": "image/jpeg", ".png": "image/png"}
+SOURCE_MEDIA = {".jpeg": "image/jpeg", ".jpg": "image/jpeg", ".png": "image/png", ".pdf": "application/pdf"}
 
 
 @app.get("/api/courses/{course}/files/{rel:path}", response_model=None)
 def read_file(rel: str, store: CourseStore = Depends(course_store)) -> PlainTextResponse | FileResponse:
-    """A Markdown file of the course, or an image of a converted source; uploaded PDFs and pipeline results are
-    not served."""
+    """A Markdown file of the course, or a source PDF or an image of its conversion; pipeline results are not
+    served."""
     try:
         path = store.path(rel)
     except CourseStoreError:
@@ -138,8 +139,8 @@ def read_file(rel: str, store: CourseStore = Depends(course_store)) -> PlainText
         raise HTTPException(404, "no such file")
     if path.suffix == ".md":
         return PlainTextResponse(store.read_text(rel))
-    if path.suffix in IMAGES and rel.startswith("sources/"):
-        return FileResponse(path, media_type=IMAGES[path.suffix])
+    if path.suffix in SOURCE_MEDIA and rel.startswith("sources/"):
+        return FileResponse(path, media_type=SOURCE_MEDIA[path.suffix])
     raise HTTPException(404, "no such file")
 
 

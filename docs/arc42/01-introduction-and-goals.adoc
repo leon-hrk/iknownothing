@@ -280,7 +280,9 @@ interface - they open a course and ask a question.
   *Sources* - shows it rendered and read-only, figures in place, in
   the *document column* beside the chat, each taking half the width. A closed
   document column opens for it.
-* The PDFs of a course are not shown.
+* *Sources* also lists the PDF of every converted source, beside its
+  conversion. Clicking one shows it in the document column, every
+  page at the column's width.
 * A narrow column left of the course tree holds a button that hides
   and shows the tree. An arrow on the right edge closes and opens the
   document column; opened before any file, it shows the *Cheatsheet*
@@ -318,7 +320,6 @@ Direction, not a plan. Nothing here is designed.
 * *Course updates.* Adding material to an existing course, editing
   derived files, and incremental re-ingestion that rebuilds only what
   a change affects while keeping student progress and user edits.
-* *PDF viewer.* The PDFs of a course shown in the UI.
 * *Upload in the UI.* The student creates a course and uploads its
   PDFs and `notes.md` in the browser, and ingestion runs in the
   background while the UI shows its progress.
