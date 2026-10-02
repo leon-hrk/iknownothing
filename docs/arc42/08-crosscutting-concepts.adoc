@@ -13,8 +13,8 @@ written by the tutor. There is no database.
 
 Only open chats are stored: the course and every topic keep one
 `chat.json` with the transcript and token usage of their open session,
-removed when the session ends. What lasts from a chat is written to
-`progress.md` and `cheatsheet.md`.
+removed when the session ends. What lasts from a chat is in
+`progress.json` and `cheatsheet.md`.
 
 ==== Storage Layout
 
@@ -38,8 +38,8 @@ data/<user>/<course>/
 │   └── topics.json         topics as extracted, and the files read
 └── topics/<topic>/
     ├── topic.md            topic artifact
-    ├── progress.md         living artifact
-    ├── usage.json          tokens of the topic's chats and finalizations
+    ├── progress.json       living artifact
+    ├── usage.json          tokens of the topic's chats
     └── chat.json           open topic-level chat
 ....
 
@@ -63,9 +63,9 @@ The files fall into three classes:
 | Ingestion, once
 
 | Student state
-| `cheatsheet.md`, `progress.md`, `usage.json`, `chat.json`
-| Chat tools for `cheatsheet.md`, finalization for `progress.md`,
-  chats and finalizations for `usage.json`, chats for `chat.json`
+| `cheatsheet.md`, `progress.json`, `usage.json`, `chat.json`
+| Chat tools for `cheatsheet.md` and `progress.json`, chats for
+  `usage.json` and `chat.json`
 |===
 
 The student edits no file. Every Markdown file is shown rendered and
@@ -73,8 +73,9 @@ read-only in the UI, the conversions of the sources with their figures
 in place. The source PDFs are shown with pdf.js in the browser.
 
 Math in Markdown is written as `+\(...\)+` inline and as `+$$...$$+` or
-`+\[...\]+` on lines of its own. A single `+$+` is text, so amounts of
-money need no escaping. The prompts of every request whose output is
+`+\[...\]+` on lines of its own. The chat also renders inline
+`+$...$+` as math when no space stands inside its delimiters; a `+$+`
+next to a space is text, so amounts of money need no escaping. The prompts of every request whose output is
 shown ask the model for this notation.
 
 ==== Cheatsheet Updates
@@ -241,13 +242,15 @@ Every request type runs on one of two model tiers (see
 |===
 | Request type | Tier
 
-| Finalization | small
 | Topic extraction | large
-| Task assignment (exercise sheets) | small
+| Task assignment (exercise sheets) | large
 | Task grouping | large
-| Tutoring (topic-level chat), including grading | large
-| Planning (course-level chat) | large
+| Tutoring (topic-level chat), including grading | small
+| Planning (course-level chat) | small
 |===
+
+A model with adaptive thinking decides how much to think; a model
+without it thinks up to a fixed budget per request.
 
 Topic extraction asks for its reply in a JSON schema. A request the
 model declines is rerun server-side on a fallback model.
@@ -260,11 +263,10 @@ The AI Client logs model and token usage of every request with user,
 course, and request type, the OCR Client the pages of every
 conversion. The cost of an ingestion is read from this log.
 
-Every chat request and finalization adds its input tokens, cached ones
-included, its cached input tokens, its output tokens, and its
-approximate cost in euros to a `usage.json`: the topic's for
-topic-level chats and their finalizations, the course's for
-course-level chats. The cost is computed from Anthropic's list prices
+Every chat request adds its input tokens, cached ones included, its
+cached input tokens, its output tokens, and its approximate cost in
+euros to a `usage.json`: the topic's for topic-level chats, the
+course's for course-level chats. The cost is computed from Anthropic's list prices
 per model and a fixed exchange rate, both in the backend source. The
 UI shows these totals, and each chat reply reports its own; the
 open session's total is kept in its `chat.json`.
@@ -273,7 +275,7 @@ open session's total is kept in its `chat.json`.
 
 The backend is asynchronous throughout. Every call to the Anthropic
 API and every other wait on I/O is non-blocking, so one backend
-process holds many streaming chats and finalizations at once.
+process holds many streaming chats at once.
 Blocking work, such as reading and writing files, runs off the
 event loop.
 
@@ -281,7 +283,9 @@ event loop.
 
 The tutor acts through a fixed set of tools, offered with every chat
 request and executed by the Tutor (see <<adr-chat-tools>>). No tool
-reaches outside the requesting user's course.
+reaches outside the requesting user's course. The tools' schemas are
+strict and the same in every chat; the Tutor checks values that
+depend on the course.
 
 [cols="1,1,3", options="header"]
 |===
@@ -295,6 +299,16 @@ reaches outside the requesting user's course.
 | `pose_task`
 | Topic-level
 | Marks a task in the reply with its gradability tier; the chat shows
-  the task and its tier. Finalization tells assessed from
-  self-reported signals by it.
+  the task and its tier.
+
+| `complete_step`
+| Topic-level
+| Ends a step. Takes the step - `introduction` or one of the topic's
+  Tier A and B tasks; any other step is rejected with the list of
+  valid ones - and a note of one sentence, empty when there is
+  nothing to keep; for a Tier B task, the note is the
+  student's self-rating, marked as such. Marks the introduction as
+  given or the task as done, with the note, in `progress.json`. The
+  chat continues from the updated progress without the messages
+  before.
 |===

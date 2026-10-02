@@ -45,8 +45,8 @@ courses, one with several past exams and one with at most one.
 | The student works through a topic in several sessions.
 | The tutor teaches from what the student cannot do yet to exam-style
   tasks. Every session starts where the last one ended, as recorded
-  in `progress.md`; `progress.md` names what was practised, with
-  assessed and self-reported signals apart.
+  in `progress.json`: the tasks done, each with a note, Tier A ones
+  graded and Tier B ones self-rated.
 
 | Q4
 | The student works through several topics without asking for the
@@ -66,8 +66,7 @@ courses, one with several past exams and one with at most one.
 
 | Q7
 | The student prepares a reference course to exam readiness.
-| All chats and finalizations of the course together cost no more
-  than its ingestion.
+| All chats of the course together cost no more than its ingestion.
 
 | Q8
 | A reviewer checks the gradability tier of the tasks in the topics'

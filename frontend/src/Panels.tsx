@@ -47,8 +47,7 @@ function EndDialog({ topic, onEnd, onCancel }: { topic: boolean; onEnd: () => vo
       <div className="dialog" role="alertdialog" aria-labelledby="end-title">
         <h2 id="end-title">End this session?</h2>
         <p>
-          {topic ? "Your progress is updated from this chat, then the chat is cleared." : "The chat is cleared."}
-          {" "}Your cheatsheet is kept.
+          The chat is cleared. Your {topic ? "progress and cheatsheet are" : "cheatsheet is"} kept.
         </p>
         <div className="actions">
           <button onClick={onCancel}>Keep chatting</button>
@@ -117,7 +116,8 @@ export function DocPanel({ params: doc }: IDockviewPanelProps<DocParams>) {
   const [text, setText] = useState<string | null>(null);
   const dir = doc.path.slice(0, doc.path.lastIndexOf("/") + 1);
   const pdf = doc.path.endsWith(".pdf");
-  const version = doc.path === CHEATSHEET ? cheatsheet : 0;
+  const json = doc.path.endsWith(".json");
+  const version = doc.path === CHEATSHEET || json ? cheatsheet : 0;
   useEffect(() => {
     if (pdf) return;
     let current = true;
@@ -134,7 +134,7 @@ export function DocPanel({ params: doc }: IDockviewPanelProps<DocParams>) {
         </Suspense>
       )
         : text === null ? <div className="pending">…</div>
-        : text.trim() ? <Markdown text={text} resolve={(src) => fileUrl(doc.course, `${dir}${src}`)} />
+        : text.trim() ? <Markdown text={json ? `\`\`\`json\n${text}\`\`\`` : text} resolve={(src) => fileUrl(doc.course, `${dir}${src}`)} />
         : <p className="muted">{doc.path === CHEATSHEET ? "No cheatsheet yet." : "This file is empty."}</p>}
     </div>
   );

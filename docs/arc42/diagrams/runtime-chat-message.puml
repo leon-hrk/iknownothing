@@ -17,7 +17,10 @@ loop until the reply has no tool call
   opt tool call
     tutor -> store : execute tool
     tutor --> frontend : SSE tool event
-    tutor -> ai : tool result
+    opt step completed
+      tutor -> store : write progress.json,\nread context again
+    end
+    tutor -> ai : tool result\n(messages since the last step)
   end
 end
 

@@ -30,7 +30,7 @@ curl -b cookies -N localhost:8000/api/courses/control-theory/chat \
     -d '{"topic": null, "transcript": [{"role": "user", "content": "Where do I stand?"}]}'
 ```
 
-Open chats are stored per course and topic; ending a topic-level session finalizes it in the backend process.
+Open chats are stored per course and topic; a topic-level chat records each completed step in the topic's `progress.json`.
 
 | Endpoint | |
 |---|---|
@@ -38,8 +38,8 @@ Open chats are stored per course and topic; ending a topic-level session finaliz
 | `GET /api/user` | the chosen user |
 | `POST /api/user` | chooses a user; sets the cookie |
 | `GET /api/courses` | the user's courses |
-| `GET /api/courses/<course>` | topics in priority order, with their Markdown files and token usage; token usage of the course-level chats. Usage: `input` (cached included), `cached`, `output` tokens, and approximate `eur` |
-| `GET /api/courses/<course>/files/<path>` | one Markdown file |
-| `POST /api/courses/<course>/chat` | stores the chat with the reply; streams the reply as Server-Sent Events: `text`, `cheatsheet`, `task`, then `usage` with the reply's tokens and `messages` to append to the transcript, or `error`; a comment every 10 s while the model thinks |
+| `GET /api/courses/<course>` | topics in priority order, with their Markdown files, `progress.json`, and token usage; token usage of the course-level chats. Usage: `input` (cached included), `cached`, `output` tokens, and approximate `eur` |
+| `GET /api/courses/<course>/files/<path>` | one course file |
+| `POST /api/courses/<course>/chat` | stores the chat with the reply; streams the reply as Server-Sent Events: `text`, `cheatsheet`, `task`, `step`, then `usage` with the reply's tokens and `messages` to append to the transcript, or `error`; a comment every 10 s while the model thinks |
 | `GET /api/courses/<course>/chat?topic=<slug>` | the open chat of a topic, or without `topic` of the course: `transcript` and `usage` |
-| `DELETE /api/courses/<course>/chat?topic=<slug>` | ends the open chat; for a topic, updates `progress.md` in the background |
+| `DELETE /api/courses/<course>/chat?topic=<slug>` | ends the open chat |

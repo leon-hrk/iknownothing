@@ -8,8 +8,8 @@
 | Term | Definition
 
 | Assessed signal
-| A mastery signal in `progress.md` from a task the tutor graded
-  (Tier A). Counts as evidence.
+| A done Tier A task in `progress.json`: the tutor graded it, and its
+  note says how it went. Counts as evidence.
 
 | Block
 | A paragraph of a source conversion, or one of its page markers,
@@ -32,7 +32,7 @@
 
 | Chat tool
 | An action the tutor takes during a chat through a tool call:
-  `update_cheatsheet`, `pose_task`.
+  `update_cheatsheet`, `pose_task`, `complete_step`.
 
 | Derived file
 | A file generated from the sources: their conversions,
@@ -44,10 +44,6 @@
 | Exercise sheet or past exam. Given by the subdirectory the operator
   puts the file in, stored as the subdirectory of `sources/`, and the
   basis of source priority.
-
-| Finalization
-| Updating a topic's `progress.md` from a topic-level chat. Happens
-  when the student ends the session.
 
 | Gradability tier
 | The class of a task by how the tutor can handle it. *Tier A*: posed
@@ -64,8 +60,8 @@
 
 | Living artifact
 | A file derived from the student rather than from the material:
-  `cheatsheet.md` and `progress.md`. The cheatsheet is updated during
-  chats, progress on finalization.
+  `cheatsheet.md` and `progress.json`. Both are updated by the tutor
+  during chats.
 
 | Notes file
 | `notes.md`: free-form remarks about the course, which the AI must
@@ -77,13 +73,14 @@
   creates its users, and adds the courses of its students.
 
 | Progress
-| `topics/<topic>/progress.md`: the student's mastery of one topic,
-  with assessed and self-reported signals kept apart. A living
-  artifact.
+| `topics/<topic>/progress.json`: whether the introduction to one
+  topic was given, and every Tier A and B task of it with whether it
+  is done and a note on how it went. A living artifact.
 
 | Self-reported signal
-| A mastery signal in `progress.md` from the student's own rating of a
-  Tier B task. Not evidence, and never presented as assessed.
+| A done Tier B task in `progress.json`: its note is the student's
+  own rating, marked as such. Not evidence, and never presented as
+  assessed.
 
 | Session
 | One chat: course-level or topic-level. Stored until the student
@@ -100,6 +97,11 @@
 | The ranking of document types. For what a topic is: past exams >
   exercises. For solution style and notation: exercise solutions >
   past exam solutions > exam question.
+
+| Step
+| A part of a topic-level session: the introduction, or one task.
+  Recorded in `progress.json` with `complete_step` when it is done;
+  the chat then continues without its messages.
 
 | Student
 | The user of the tutor. Owns courses.

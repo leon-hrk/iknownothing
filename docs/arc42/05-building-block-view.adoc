@@ -21,8 +21,8 @@ include::diagrams/building-blocks-level1.puml[]
 
 | Backend
 | FastAPI application serving the HTTP API. Handles requests, streams
-  chat replies as Server-Sent Events, stores open chats, and finalizes
-  topic-level sessions in the background. Its image also holds the operator's user and
+  chat replies as Server-Sent Events, and stores open chats. Its
+  image also holds the operator's user and
   course commands (see <<adr-operator-ingestion>>).
 
 | Filesystem
@@ -77,9 +77,8 @@ include::diagrams/building-blocks-level2.puml[]
 | Tutor
 | Course-level and topic-level chats: assembles each chat's context
   from the Course Store, a topic's tasks included, streams replies as Server-Sent Events,
-  executes the chat tools, stores the open chat after each reply, and
-  finalizes an ended topic-level session by updating its `progress.md`,
-  in a background task after the response.
+  executes the chat tools - recording a completed step in the topic's
+  `progress.json` - and stores the open chat after each reply.
 | -
 
 | AI Client
@@ -106,5 +105,5 @@ include::diagrams/building-blocks-level2.puml[]
 ==== Prompts
 
 Every prompt is a Markdown file in the backend source tree, one per
-task (topic extraction, planning, tutoring, finalization). The AI Client loads them by name; other modules never build
+task (topic extraction, planning, tutoring). The AI Client loads them by name; other modules never build
 prompt text inline.

@@ -7,14 +7,18 @@ import remarkMath from "remark-math";
 /** Fenced code blocks (closed or still streaming) and inline code spans. */
 const CODE = /(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]*`)/g;
 
-/** Rewrites `\(…\)` to `$$…$$` and `\[…\]` to a `$$` block, outside of code, for remark-math. */
+/** Inline `$…$` with no space inside its delimiters; a `$` next to a space, as in amounts of money, is text. */
+const DOLLAR_MATH = /(?<![\\$\w])\$(?=[^\s$])([^$\n]*?[^\s$\\])\$(?![\w$])/g;
+
+/** Rewrites `\(…\)` and inline `$…$` to `$$…$$` and `\[…\]` to a `$$` block, outside of code, for remark-math. */
 function normalizeMath(text: string): string {
   return text
     .split(CODE)
     .map((part, i) => i % 2 ? part : part
       .replace(/\\\[([\s\S]*?)\\\]/g, (_, m: string) =>
         /^[ \t]*\n[\s\S]*\n[ \t]*$/.test(m) ? `$$${m}$$` : `\n$$\n${m.trim()}\n$$\n`)
-      .replace(/\\\(([\s\S]*?)\\\)/g, (_, m: string) => `$$${m.trim()}$$`))
+      .replace(/\\\(([\s\S]*?)\\\)/g, (_, m: string) => `$$${m.trim()}$$`)
+      .replace(DOLLAR_MATH, (_, m: string) => `$$${m}$$`))
     .join("");
 }
 

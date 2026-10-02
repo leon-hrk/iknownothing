@@ -17,8 +17,8 @@ class Settings:
     def from_env(cls) -> "Settings":
         return cls(
             data_dir=Path(os.environ.get("IKN_DATA_DIR", "data")),
-            model_large=os.environ.get("IKN_MODEL_LARGE", "claude-opus-5"),
-            model_small=os.environ.get("IKN_MODEL_SMALL", "claude-sonnet-5"),
+            model_large=os.environ.get("IKN_MODEL_LARGE", "claude-sonnet-5"),
+            model_small=os.environ.get("IKN_MODEL_SMALL", "claude-haiku-4-5"),
             frontend_dir=Path(os.environ["IKN_FRONTEND_DIR"]) if os.environ.get("IKN_FRONTEND_DIR") else None,
             courses_dir=Path(os.environ.get("IKN_COURSES_DIR", "courses")),
             mock_user=os.environ.get("IKN_MOCK_USER") == "1",

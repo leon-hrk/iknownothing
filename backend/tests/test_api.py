@@ -40,11 +40,13 @@ def events(response) -> list[tuple[str, object]]:
     return out
 
 
-def test_course_and_files(client):
+def test_course_and_files(client, store):  # noqa: F811
     assert client.get("/api/courses").json() == [{"name": "control", "status": "ready"}]
     course = client.get("/api/courses/control").json()
+    store.write_json("topics/laplace/progress.json", {"introduction": True})
+    course = client.get("/api/courses/control").json()
     assert course["topics"] == [{"slug": "laplace", "name": "Laplace", "priority": "high",
-                                 "files": ["topics/laplace/topic.md"], "usage": {"input": 0, "cached": 0, "output": 0, "eur": 0.0}}]
+                                 "files": ["topics/laplace/progress.json", "topics/laplace/topic.md"], "usage": {"input": 0, "cached": 0, "output": 0, "eur": 0.0}}]
     assert course["files"] == ["notes.md"]
     assert course["sources"] == ["sources/exams/2023.md", "sources/exercises/uebung1.md"]
     assert client.get("/api/courses/control/files/topics/laplace/topic.md").text == "# Laplace"
@@ -97,18 +99,15 @@ def test_chat_is_stored_until_ended(client, store):  # noqa: F811
     assert client.get("/api/courses/control/chat").json() == empty
     assert client.get("/api/courses/control/chat", params={"topic": "nope"}).status_code == 404
 
-    r = client.delete("/api/courses/control/chat", params={"topic": "laplace"})
-    assert r.status_code == 202
-    assert store.read_text("topics/laplace/progress.md") == "# Progress\n"
+    assert client.delete("/api/courses/control/chat", params={"topic": "laplace"}).status_code == 204
     assert client.get("/api/courses/control/chat", params={"topic": "laplace"}).json() == empty
 
 
-def test_ending_an_empty_or_course_chat_does_not_finalize(client, store):  # noqa: F811
+def test_ending_a_course_or_empty_chat(client, store):  # noqa: F811
     client.post("/api/courses/control/chat", json={"topic": None, "transcript": [{"role": "user", "content": "hi"}]})
-    assert client.delete("/api/courses/control/chat").status_code == 202
-    assert client.delete("/api/courses/control/chat", params={"topic": "laplace"}).status_code == 202
+    assert client.delete("/api/courses/control/chat").status_code == 204
+    assert client.delete("/api/courses/control/chat", params={"topic": "laplace"}).status_code == 204
     assert not store.exists("chat.json")
-    assert not store.exists("topics/laplace/progress.md")
 
 
 def test_chat_heartbeat(client, monkeypatch):
@@ -144,7 +143,7 @@ def test_mock_user_gets_the_sample_data_and_stores_nothing(client, store, tmp_pa
         r = client.post("/api/courses/sample-course/chat",
                         json={"topic": topic, "transcript": [{"role": "user", "content": "/normal"}]})
         assert events(r)[-1][0] == "messages"
-        assert client.delete("/api/courses/sample-course/chat", params=params).status_code == 202
+        assert client.delete("/api/courses/sample-course/chat", params=params).status_code == 204
     assert {rel: sample.read_bytes(rel) for rel in sample.files()} == before
 
 

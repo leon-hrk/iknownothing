@@ -5,7 +5,7 @@ from pathlib import Path
 
 from iknownothing.course_store import DOC_TYPES, CourseStore
 
-STUDENT_STATE = ("cheatsheet.md", "progress.md", "usage.json", "chat.json")
+STUDENT_STATE = ("cheatsheet.md", "progress.json", "usage.json", "chat.json")
 
 
 class CourseError(Exception):

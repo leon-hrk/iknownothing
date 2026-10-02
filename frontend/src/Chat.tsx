@@ -9,7 +9,10 @@ export type OpenChat = {
 
 type Part = { kind: "thinking" | "text" | "note"; text: string };
 
-const DOING: Record<string, string> = { update_cheatsheet: "Updating cheatsheet…", pose_task: "Posing a task…" };
+const DOING: Record<string, string> = {
+  update_cheatsheet: "Updating cheatsheet…", pose_task: "Posing a task…",
+  complete_step: "Recording progress…",
+};
 
 function Thinking({ text, open }: { text: string; open: boolean }) {
   return (
@@ -29,6 +32,7 @@ function note(b: Block): string | null {
   const input = b.input as Record<string, string>;
   if (b.name === "pose_task") return `Task: ${input.task} · Tier ${input.tier}`;
   if (b.name === "update_cheatsheet") return `Cheatsheet: ${input.heading}`;
+  if (b.name === "complete_step") return "Step recorded in progress";
   return null;
 }
 
@@ -106,6 +110,9 @@ export default function Chat({ open, update, onCheatsheet, onUsage, onBusy, onOp
           onCheatsheet();
         } else if (e.kind === "task") {
           setLive((parts) => [...parts!, { kind: "note", text: `Task: ${e.data.task} · Tier ${e.data.tier}` }]);
+        } else if (e.kind === "step") {
+          setLive((parts) => [...parts!, { kind: "note", text: "Step recorded in progress" }]);
+          onCheatsheet();
         } else if (e.kind === "usage") {
           onUsage(e.data);
         } else if (e.kind === "messages") {

@@ -50,7 +50,7 @@ def test_other_messages_list_the_commands(store, ai, message):  # noqa: F811
 
 def test_other_requests_fail(ai):
     with pytest.raises(AIError):
-        asyncio.run(ai.request_text("finalization", []))
+        asyncio.run(ai.request_json("topic_extraction", [], {}))
 
 
 def test_sample_chat_sends_each_command():

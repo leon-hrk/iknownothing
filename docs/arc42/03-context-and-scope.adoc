@@ -31,7 +31,7 @@ include::diagrams/business-context.puml[]
 
 | Anthropic API
 | Topics with the block ranges of their tasks, tutor replies and
-  grading, updated progress
+  grading, completed steps
 | Converted course material with its figures, topics, artifacts, and
   prompts -
   authenticated with the instance's API key

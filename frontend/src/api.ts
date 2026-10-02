@@ -24,6 +24,7 @@ export type ChatEvent =
   | { kind: "tool"; data: string }
   | { kind: "cheatsheet"; data: { section: string; heading: string; body: string } }
   | { kind: "task"; data: { task: string; tier: "A" | "B" } }
+  | { kind: "step"; data: { step: string; note: string } }
   | { kind: "usage"; data: Usage }
   | { kind: "messages"; data: Message[] }
   | { kind: "error"; data: string };
@@ -107,7 +108,7 @@ const chatUrl = (course: string, topic: string | null) =>
 export const getChat = (course: string, topic: string | null) =>
   json<{ transcript: Message[]; usage: Usage }>(chatUrl(course, topic));
 
-/** Ends the open chat; for a topic, its progress is updated from the chat in the background. */
+/** Ends the open chat. */
 export async function endChat(course: string, topic: string | null): Promise<void> {
   await request(chatUrl(course, topic), { method: "DELETE" });
 }

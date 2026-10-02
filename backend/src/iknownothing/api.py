@@ -9,11 +9,10 @@ Every request except listing and choosing users is served for the user in the co
 import asyncio
 import json
 import logging
-from collections import defaultdict
 from collections.abc import AsyncIterator
 from pathlib import Path
 
-from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, HTTPException, Response
+from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
 from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -24,8 +23,7 @@ from iknownothing.config import Settings
 from iknownothing.course_store import CourseStore, CourseStoreError
 from iknownothing.ingestion.pipeline import RESULT, unit
 from iknownothing.mock.ai_client import SAMPLE_DATA, MockAIClient, sample_chat
-from iknownothing.tutor.chat import TutorError, reply, topic_entry
-from iknownothing.tutor.finalization import finalize
+from iknownothing.tutor.chat import PROGRESS, TutorError, reply, topic_entry
 
 log = logging.getLogger(__name__)
 
@@ -36,7 +34,6 @@ HEARTBEAT = 10
 COOKIE = "ikn_user"
 MOCK_USER = "mock"
 
-_finalization_locks: defaultdict[tuple[str, str], asyncio.Lock] = defaultdict(asyncio.Lock)
 
 
 def _is_mock(user: str) -> bool:
@@ -104,16 +101,16 @@ def list_courses(user: str = Depends(current_user)) -> list[dict]:
 
 @app.get("/api/courses/{course}")
 def get_course(store: CourseStore = Depends(course_store)) -> dict:
-    """The course with its topics in priority order, each with the Markdown files of its directory, and its
+    """The course with its topics in priority order, each with the Markdown files and the progress of its directory, and its
     sources: the PDFs and their Markdown conversions.
 
-    `usage` holds the tokens spent on the chats of a topic, finalizations included, and on the
+    `usage` holds the tokens spent on the chats of a topic and on the
     course-level chat.
     """
     topics = []
     if store.exists("topics.json"):
         for t in store.read_json("topics.json"):
-            files = sorted(p.name for p in store.path(t["dir"]).glob("*.md"))
+            files = sorted(p.name for p in store.path(t["dir"]).glob("*") if p.suffix == ".md" or p.name == PROGRESS)
             topics.append({"slug": t["slug"], "name": t["name"], "priority": t["priority"],
                            "files": [f"{t['dir']}/{f}" for f in files], "usage": courses.usage(store, t["dir"])})
     sources = sorted((p.relative_to(store.root).as_posix() for p in store.path("sources").glob("*/*")
@@ -137,7 +134,7 @@ def read_file(rel: str, store: CourseStore = Depends(course_store)) -> PlainText
         raise HTTPException(404, "no such file")
     if not path.is_file():
         raise HTTPException(404, "no such file")
-    if path.suffix == ".md":
+    if path.suffix == ".md" or path.name == PROGRESS:
         return PlainTextResponse(store.read_text(rel))
     if path.suffix in SOURCE_MEDIA and rel.startswith("sources/"):
         return FileResponse(path, media_type=SOURCE_MEDIA[path.suffix])
@@ -161,16 +158,12 @@ def get_chat(topic: str | None = None, store: CourseStore = Depends(ready_store)
     return sample_chat() if _is_mock(store.user) else courses.chat(store, directory)
 
 
-@app.delete("/api/courses/{course}/chat", status_code=202)
-def end_chat(tasks: BackgroundTasks, topic: str | None = None,
-             store: CourseStore = Depends(ready_store)) -> None:
-    """Ends the open chat; a topic's progress.md is updated from its transcript in the background."""
+@app.delete("/api/courses/{course}/chat", status_code=204)
+def end_chat(topic: str | None = None, store: CourseStore = Depends(ready_store)) -> None:
+    """Ends the open chat."""
     directory = _directory(store, topic)
-    if _is_mock(store.user):
-        return
-    transcript = courses.end_chat(store, directory)
-    if topic is not None and transcript:
-        tasks.add_task(_finalize, store, topic, transcript)
+    if not _is_mock(store.user):
+        courses.end_chat(store, directory)
 
 
 class ChatRequest(BaseModel):
@@ -246,18 +239,6 @@ async def _add_usage(store: CourseStore, directory: str, ai: AIClient) -> None:
         await courses.add_usage(store, directory, ai.tokens())
     except Exception:
         log.exception("recording usage of %s/%s failed", store.user, store.course)
-
-
-async def _finalize(store: CourseStore, slug: str, transcript: list[dict]) -> None:
-    ai = _ai_client(store)
-    try:
-        async with _finalization_locks[(store.user, store.course)]:
-            await finalize(store, ai, slug, store.read_json(RESULT)["language"], transcript)
-    except Exception:
-        log.exception("finalization of %s/%s/%s failed", store.user, store.course, slug)
-    finally:
-        await _add_usage(store, topic_entry(store, slug)["dir"], ai)
-        await ai.close()
 
 
 if settings.frontend_dir:

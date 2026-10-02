@@ -136,28 +136,24 @@ application authenticates no one (chapter 11): it must stay on
 store.
 
 [[adr-operator-ingestion]]
-=== 12. The operator ingests courses; finalization runs in the backend
+=== 12. The operator ingests courses
 
 Status:: accepted
 
 Context::
 v0 is a feasibility study for a small group. The operator provides
 the course material, so ingestion is started by the operator, not
-from the UI, and no one watches its progress in the browser. The only
-work left to run outside a request is the finalization of a
-topic-level chat, a single request of seconds.
+from the UI, and no one watches its progress in the browser.
+Ingestion is the only work that runs outside a request.
 
 Decision::
 The operator ingests a course with a command of the application
-image, which runs the pipeline in its own process. Finalization runs
-as a background task of the backend process after the response to
-the request that ends the session.
+image, which runs the pipeline in its own process.
 
 Consequences::
 There is no worker service and no job queue to deploy. An ingestion blocks the operator's terminal
 for its duration; a failed one is resumed with a second command and
-skips the steps whose results already exist. A finalization that is
-running when the backend stops is lost. Upload by students (chapter
+skips the steps whose results already exist. Upload by students (chapter
 1, out of scope) needs ingestion in the background and brings back a
 job queue.
 
@@ -248,24 +244,22 @@ not change.
 Status:: accepted
 
 Context::
-The cost of a request grows with its input tokens and the price of
-the model. Finalization reads a whole chat transcript but does
-mechanical work. Topic extraction and the chat decide what the
-student learns and at which level. Ingestion
-and tutoring have a cost limit (chapter 10).
+The cost of a request grows with its tokens and the price of the
+model. Ingestion runs once per course and defines the topics and
+tasks every chat builds on. Chat requests repeat with every student
+interaction and make up most of a course's cost.
+Ingestion and tutoring have a cost limit (chapter 10).
 
 Decision::
-Request types with large input and mechanical work run on a small
-model; request types whose result defines topics, difficulty, or
-teaching run on a large model. The model of each tier is
-configuration.
+Ingestion request types run on a large model; chat requests run on
+a small model. The model of each tier is configuration.
 
 Consequences::
-The large model reads the whole material once and otherwise sees one
-chat's context: a topic's tasks and the student's state. Models
-can be exchanged without code changes. The chat is the only large-model
-request type that repeats per student interaction, so its cost
-depends on prompt caching.
+The large model reads the whole material once; every repeated
+request runs at the small model's price and sees one chat's context:
+a topic's tasks and the student's state. Teaching quality depends on
+the small model and on the structure ingestion provides. Models can
+be exchanged without code changes.
 
 [[adr-operator-key]]
 === 7. The operator provides the API key and the users
@@ -300,8 +294,9 @@ Status:: accepted
 Context::
 During a chat the tutor does more than write text. It updates the
 cheatsheet while the student works, marks posed tasks with their tier
-so that grading and finalization can tell assessed from self-reported
-signals. The backend has to recognise each of these
+so that grading can tell assessed from self-reported signals, and
+records completed steps in the progress. The backend has to
+recognise each of these
 reliably, without parsing prose. Retrieval and open-ended agentic
 tool use are out of scope (chapter 1).
 

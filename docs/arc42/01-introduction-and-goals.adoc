@@ -27,8 +27,8 @@ exactly these tasks, cut out of the material converted to Markdown.
 What the student learns is kept in two living artifacts: a
 *cheatsheet* of key terms, formulas, and strategies, which the tutor
 fills during chats, and a *progress* file per topic, updated after
-every session on that topic. Every new session starts from them
-instead of from zero.
+every step of a session on that topic. Every new session starts from
+them instead of from zero.
 
 ==== Users and Hosting
 
@@ -111,9 +111,10 @@ Nothing can be added to or changed in a course afterwards. Until
 ingestion is done, the course is listed as not ready and cannot be
 opened.
 
-The student can read every Markdown file of a course but edits none.
-Only the tutor writes after ingestion: `cheatsheet.md` through the
-chat, `progress.md` on finalization.
+The student can read every Markdown file of a course and the
+progress files but edits none.
+Only the tutor writes after ingestion: `cheatsheet.md` and
+`progress.json`, both through the chat.
 
 ==== Fallback Strategies
 
@@ -137,16 +138,17 @@ one of three tiers, and the tier determines how the tutor handles it.
 
 *Tier A - graded.* Text, math, derivations, code, short answers. The
 normal loop: tutor poses the problem, student answers, tutor grades
-and gives feedback. Result feeds `progress.md` as an *assessed*
-mastery signal.
+and gives feedback. The task is marked done in `progress.json`, with
+a note on how it went: an *assessed* mastery signal.
 
 *Tier B - posed, self-assessed.* Tasks whose solution can be
 expressed in ASCII/Markdown: state machines, flow charts, simple
 block diagrams, truth tables, tree structures, timing diagrams. The
 tutor poses the task and can show a reference solution in ASCII, but
 does *not* grade the student's attempt. Instead the student
-self-reports ("got it" / "struggled" / "no idea"). Result feeds
-`progress.md` as a *self-reported* signal, explicitly marked as such.
+self-reports ("got it" / "struggled" / "no idea"). The task is marked
+done in `progress.json`, with the self-rating as its note: a
+*self-reported* signal, explicitly marked as such.
 
 *Tier C - out of reach.* Tasks with no meaningful text
 representation: freehand sketches, hand-drawn plots, circuit layouts,
@@ -182,13 +184,23 @@ chooses *End session* and confirms; its chat is then cleared.
 ** The topic's artifact (`topics/<topic>/topic.md`)
 ** The topic's tasks, as Markdown with their figures
 ** The course cheatsheet (`cheatsheet.md`)
-** The topic's progress (`topics/<topic>/progress.md`)
+** The topic's progress (`topics/<topic>/progress.json`)
 ** The course notes (`notes.md`)
 * A topic directory is also directly readable: the student can open
   its files without starting a chat.
-* The tutor adapts: "I know nothing about this" - guided
-  introduction; "quiz me" - exam-style problems with feedback, at the
-  difficulty and working time of the exam tasks in its sources.
+* Without progress on the topic, the tutor opens with an
+  introduction: the basics and the method the exam tasks ask for,
+  shown on a small worked example of the tutor's own - never on a
+  task of the sources, which the student solves later. Once the
+  student has understood it, the first task follows. A student who
+  knows the topic or asks to be quizzed gets exam-style problems with
+  feedback, at the difficulty and working time of the exam tasks in
+  its sources.
+* A topic-level session runs in *steps*: the introduction, then one
+  task at a time. When a step is done, the tutor records it in
+  `progress.json` and continues from the updated progress, without
+  the messages of the steps before. The student still sees the whole
+  chat.
 * A task posed from the sources shows the figures of its statement
   in the chat, and its label links to the PDF page where the task
   stands. A solution shown from the sources links to the page where
@@ -201,11 +213,15 @@ chooses *End session* and confirms; its chat is then cleared.
   the student knows what they still have to practise elsewhere.
 * Solutions always follow the professor's conventions and notation,
   as the solutions in the sources show them.
+* A task without a solution in its sources - often a past exam task -
+  gets a solution the tutor works out from the solved tasks of the
+  topic, in their method and notation. The tutor tells the student
+  that it is its own solution, not the course's.
 * *Language*: the tutor responds in the language of the course
   materials, detected during ingestion - the language the exam is
   written in. It is not configurable.
 * *Only open chats are stored.* A chat is kept until its session
-  ends. What lasts from it is written to `progress.md` and
+  ends. What lasts from it is in `progress.json` and
   `cheatsheet.md`.
 
 ==== Living Artifacts
@@ -215,14 +231,14 @@ chooses *End session* and confirms; its chat is then cleared.
   soon as something worth keeping comes up, so the student can use it
   while solving tasks. The student changes it by asking the tutor in
   the chat.
-* *`progress.md`* - one per topic: what the student can do, where
-  they struggle, what to review next. Assessed signals
-  (Tier A) and self-reported ones (Tier B) are kept distinct - a
-  student's self-rating is useful but is not evidence, and the tutor
+* *`progress.json`* - one per topic: whether the introduction was
+  given, and every Tier A and B task of the topic with whether it is
+  done and a one-sentence note on how it went. The tutor records a
+  step in it as soon as the step is done, so every new session starts
+  informed about the student's current level. A done Tier A task is
+  assessed; a done Tier B task is self-reported, its note the
+  student's self-rating - useful, but not evidence, and the tutor
   does not treat it as such.
-* *Finalization*: whenever a topic-level session ends, the topic's
-  `progress.md` is updated from its chat. Every new session starts
-  informed about the student's current level.
 
 ==== User Interface
 
@@ -243,7 +259,7 @@ arranged side by side.
 |   |  > Stability            |                    | learn?            | |
 |   |  v Observers            |                    +-------------------+ |
 |   |      topic.md           |                                          |
-|   |      progress.md        | Three topics are still open, in exam     |
+|   |      progress.json      | Three topics are still open, in exam     |
 |   |  > State Space          | priority order:                          |
 |   |  Notes                  |                                          |
 |   |  Cheatsheet             | 1. Observers - high priority, never      |
@@ -277,20 +293,21 @@ arranged side by side.
   reload, per user.
 * A bar above each chat holds, on the right, its token
   usage and the *End session* button. The button asks for
-  confirmation, then ends the session: for a topic, `progress.md` is
-  updated, and the chat is cleared.
+  confirmation, then ends the session: the chat is cleared. The
+  progress recorded in its steps is kept.
 * A chat tab is an ordinary chat. Planning, tutoring, and
   quizzing all happen there.
 * Token usage is shown as input (↑) tokens, cached input included and
   the cached share named, output (↓) tokens, and the approximate cost
   in euros: in the bar of each chat for its session, and on three lines in
-  an expanded topic for all its chats and finalizations and in an
+  an expanded topic for all its chats and in an
   expanded course for the whole course, its course-level chats and
   all its topics together.
 * Clicking a Markdown file - the files of a topic, *Notes*,
   *Cheatsheet*, and the converted exams and exercises under
   *Sources* - shows it rendered and read-only, figures in place, in
-  a tab.
+  a tab. A topic's `progress.json` shows as a JSON code block and is
+  refreshed after every step.
 * *Sources* also lists the PDF of every converted source, beside its
   conversion. Clicking one shows it in a tab, every page at the
   tab's width.
@@ -365,8 +382,9 @@ Ordered by priority. Concrete scenarios are in
 
 | 3
 | Transparency
-| Every Markdown file of a course - topic artifacts, notes, and
-  student state - can be opened in the UI and is shown rendered.
+| Every Markdown file of a course - topic artifacts, notes, and the
+  cheatsheet - and every progress file can be opened in the UI and is
+  shown rendered.
 
 | 4
 | Honesty

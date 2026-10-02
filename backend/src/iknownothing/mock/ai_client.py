@@ -118,9 +118,6 @@ class MockAIClient:
     async def request_json(self, request_type: str, messages: list[dict], schema: dict) -> Any:
         raise AIError(f"{request_type}: not available with the mock AI client")
 
-    async def request_text(self, request_type: str, messages: list[dict]) -> str:
-        raise AIError(f"{request_type}: not available with the mock AI client")
-
     async def stream_chat(
         self, request_type: str, messages: list[dict], tools: list[dict],
     ) -> AsyncIterator[tuple[str, Any]]:

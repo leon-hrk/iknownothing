@@ -5,9 +5,8 @@ from types import SimpleNamespace
 import pytest
 
 from iknownothing.course_store import CourseStore
-from iknownothing.tutor.chat import TutorError, course_context, reply, topic_context
+from iknownothing.tutor.chat import CONTINUE, TutorError, course_context, progress, reply, step_start, topic_context
 from iknownothing.tutor.cheatsheet import CheatsheetError, parse, set_entry
-from iknownothing.tutor.finalization import finalize, render_transcript
 
 
 @pytest.fixture
@@ -95,10 +94,6 @@ class FakeAI:
             msg = SimpleNamespace(stop_reason=self.stop_reason, content=[block("text", text="Draw it.")])
         yield "message", msg
 
-    async def request_text(self, request_type, messages):
-        self.requests.append(messages)
-        return "# Progress\n"
-
 
 def run_reply(store, ai, transcript, slug="laplace"):
     async def collect():
@@ -120,6 +115,70 @@ def test_reply_runs_tools(store):
     assert first[0]["text"].startswith("<source") and first[-1] == {"type": "text", "text": "quiz me"}
 
 
+class StepAI:
+    """Completes the step, then poses the next task."""
+
+    def __init__(self):
+        self.requests = []
+
+    async def stream_chat(self, request_type, messages, tools):
+        self.requests.append(messages)
+        if len(self.requests) == 1:
+            content = [block("text", text="Richtig."), block("tool_use", id="s1", name="complete_step",
+                                                               input={"step": "Klausur 2023, Aufgabe 2b", "note": "Vorzeichen vergessen."})]
+            msg = SimpleNamespace(stop_reason="tool_use", content=content)
+        else:
+            msg = SimpleNamespace(stop_reason="end_turn", content=[block("text", text="Next task.")])
+        yield "message", msg
+
+
+def test_completed_step_is_recorded_and_left_out(store):
+    ai = StepAI()
+
+    async def collect(transcript):
+        return [e async for e in reply(store, ai, "laplace", "German", transcript)]
+
+    transcript = [{"role": "user", "content": "teach me"}]
+    events = asyncio.run(collect(transcript))
+
+    assert ("step", {"step": "Klausur 2023, Aufgabe 2b", "note": "Vorzeichen vergessen."}) in events
+    assert store.read_json("topics/laplace/progress.json") == {"introduction": False, "tasks": {
+        "Klausur 2023, Aufgabe 2b": {"done": True, "note": "Vorzeichen vergessen."},
+        "Übung 1, Aufgabe 1": {"done": False}}}
+    assert step_start(transcript) == 3
+    second = ai.requests[1]
+    assert len(second) == 1 and second[0]["content"][-1] == {"type": "text", "text": CONTINUE}
+    assert '"note": "Vorzeichen vergessen."' in second[0]["content"][-2]["text"]
+
+    transcript.append({"role": "user", "content": "my answer"})
+    ai.requests.clear()
+    asyncio.run(collect(transcript))
+    assert [m["role"] for m in ai.requests[0]] == ["user", "assistant", "user"]
+    assert ai.requests[0][1]["content"] == [{"type": "text", "text": "Next task."}]
+
+
+def test_progress_and_unknown_step(store):
+    topic = store.read_json("topics.json")[0]
+    assert progress(store, topic) == {"introduction": False, "tasks": {
+        "Klausur 2023, Aufgabe 2b": {"done": False}, "Übung 1, Aufgabe 1": {"done": False}}}
+
+    class UnknownStepAI(StepAI):
+        async def stream_chat(self, request_type, messages, tools):
+            self.requests.append(messages)
+            if len(self.requests) == 1:
+                content = [block("tool_use", id="s1", name="complete_step", input={"step": "Aufgabe 9", "note": ""})]
+                msg = SimpleNamespace(stop_reason="tool_use", content=content)
+            else:
+                msg = SimpleNamespace(stop_reason="end_turn", content=[block("text", text="Next task.")])
+            yield "message", msg
+
+    transcript = [{"role": "user", "content": "teach me"}]
+    events = run_reply(store, UnknownStepAI(), transcript)
+    assert not any(k == "step" for k, _ in events)
+    assert transcript[2]["content"][0]["is_error"] and "Klausur 2023, Aufgabe 2b" in transcript[2]["content"][0]["content"]
+    assert step_start(transcript) == 0 and not store.exists("topics/laplace/progress.json")
+
+
 def test_reply_failure_keeps_transcript(store):
     transcript = [{"role": "user", "content": "quiz me"}]
     with pytest.raises(TutorError):
@@ -127,25 +186,9 @@ def test_reply_failure_keeps_transcript(store):
     assert transcript == [{"role": "user", "content": "quiz me"}]
 
 
-def test_finalize(store):
-    transcript = [{"role": "user", "content": "quiz me"}]
-    run_reply(store, FakeAI(), transcript)
-    assert render_transcript(transcript) == (
-        "Student: quiz me\n\n[Cheatsheet entry: Transform]\n\n"
-        "[Task posed: Klausur 2023, Aufgabe 3, Tier B]\n\nTutor: Draw it."
-    )
-    ai = FakeAI()
-    asyncio.run(finalize(store, ai, "laplace", "German", transcript))
-    assert store.read_text("topics/laplace/progress.md") == "# Progress\n"
-    assert "(none yet" in ai.requests[0][0]["content"]
-
-    ai = FakeAI()
-    asyncio.run(finalize(store, ai, "laplace", "German", []))
-    assert ai.requests == []
-
-
 def test_course_chat(store):
-    store.write_text("topics/laplace/progress.md", "# Progress\ncan transform")
+    store.write_json("topics/laplace/progress.json", {"introduction": True, "tasks": {
+        "Klausur 2023, Aufgabe 2b": {"done": True, "note": "can transform"}}})
     ctx = course_context(store, "German")
     assert len(ctx) == 1 and "cache_control" in ctx[0]
     assert '<topic name="Laplace" priority="high">' in ctx[0]["text"]

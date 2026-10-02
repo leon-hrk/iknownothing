@@ -40,7 +40,7 @@ def test_add_from_dir_checks(tmp_path, change, error):
 
 def test_copy_from(store, tmp_path):  # noqa: F811
     store.write_text("cheatsheet.md", "# Cheatsheet")
-    store.write_text("topics/laplace/progress.md", "# Progress")
+    store.write_json("topics/laplace/progress.json", {"introduction": True})
     store.write_json("topics/laplace/usage.json", {"input": 1, "output": 1})
     copy = CourseStore(store.root.parent.parent, "bob", "control")
     courses.copy_from(copy, store)

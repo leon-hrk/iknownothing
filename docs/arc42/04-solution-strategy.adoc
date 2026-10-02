@@ -31,8 +31,7 @@
   <<adr-no-login>>).
 
 | Background work
-| None beyond a request: the operator's command runs ingestion, and
-  finalization runs as a background task of the backend process (see
+| None beyond a request: the operator's command runs ingestion (see
   <<adr-operator-ingestion>>).
 
 | Retrieval

@@ -83,7 +83,9 @@ reload. Opening a chat loads its stored transcript.
 . Tutor assembles the context for the scope through the Course Store
   (chapter 1, Tutoring Sessions) - for a topic-level chat, its tasks
   first (<<_topic_extraction,chapter 8>>) - and sends it with the transcript and
-  the <<_chat_tools,chat tools>> through the AI Client.
+  the <<_chat_tools,chat tools>> through the AI Client. Of a
+  topic-level transcript, only the messages since the last completed
+  step are sent.
 . The reply streams to the frontend as Server-Sent Events: the
   summary of the model's thinking, the text, and the start of each
   tool call. Until the text arrives, the frontend shows the thinking
@@ -92,32 +94,17 @@ reload. Opening a chat loads its stored transcript.
 . When the model calls a tool, Tutor executes it and continues the
   reply with the tool result in a follow-up request. Tools with a
   visible effect emit their own event: cheatsheet changed, task
-  posed.
+  posed, step completed.
+. When the model completes a step, Tutor marks the introduction as
+  given or the task as done, with the model's note, in the topic's
+  `progress.json`. It assembles the context again with the updated
+  progress and sends the follow-up request without the step's
+  messages.
 . Tutor stores the transcript with the reply and the session's token
   usage in the scope's `chat.json`.
 . The frontend appends the reply and its tool calls to the
   transcript.
 
-[[runtime-finalization]]
-=== Session Finalization
-
-[plantuml, target=runtime-finalization, format=svg]
-....
-include::diagrams/runtime-finalization.puml[]
-....
-
-Only topic-level sessions are finalized, and only once the student
-has written in them.
-
-. A session ends when the student chooses *End session* and confirms.
-  The frontend asks the backend to end the scope's chat. Tutor removes
-  its `chat.json`, answers at once, and finalizes the removed
-  transcript in a background task of the backend process.
-. Tutor sends one request with the transcript, the topic's
-  `topic.md`, and its current `progress.md`, and receives the updated
-  progress, with assessed and self-reported signals kept apart.
-. Tutor writes `progress.md` through the Course Store.
-
-Finalizations of one course run one at a time, so two sessions on the
-same topic never write its progress concurrently. A finalization that
-is running when the backend stops is lost.
+A session ends when the student chooses *End session* and confirms.
+The frontend asks the backend to end the scope's chat, and Tutor
+removes its `chat.json`. The progress recorded in its steps stays.

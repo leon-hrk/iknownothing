@@ -16,18 +16,26 @@ log = logging.getLogger(__name__)
 
 TIERS = {
     "topic_extraction": "large",
-    "task_assignment": "small",
+    "task_assignment": "large",
     "task_grouping": "large",
-    "planning": "large",
-    "tutoring": "large",
-    "finalization": "small",
+    "planning": "small",
+    "tutoring": "small",
 }
+
+# Haiku 4.5 has no adaptive thinking; it thinks up to a fixed budget.
+_HAIKU_THINKING_BUDGET = 2048
 
 _FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 
 class AIError(Exception):
     pass
+
+
+def _thinking(model: str, display: str = "omitted") -> dict:
+    if model.startswith("claude-haiku-4-5"):
+        return {"type": "enabled", "budget_tokens": _HAIKU_THINKING_BUDGET}
+    return {"type": "adaptive", "display": display}
 
 
 def load_prompt(name: str) -> str:
@@ -53,7 +61,7 @@ class AIClient:
             max_tokens=64000,
             system=load_prompt(request_type),
             messages=messages,
-            thinking={"type": "adaptive"},
+            thinking=_thinking(model),
             output_config={"format": {"type": "json_schema", "schema": schema}},
             betas=[_FALLBACK_BETA],
             fallbacks="default",
@@ -79,13 +87,14 @@ class AIClient:
     ) -> AsyncIterator[tuple[str, Any]]:
         """Streams one chat request: yields `("thinking", chunk)` of the thinking summary, `("text", chunk)`, and
         `("tool", name)` when a tool call starts, while the reply arrives, then `("message", msg)`."""
+        model = self._models[TIERS[request_type]]
         async with self._client.messages.stream(
-            model=self._models[TIERS[request_type]],
+            model=model,
             max_tokens=32000,
             system=load_prompt(request_type),
             messages=messages,
             tools=tools,
-            thinking={"type": "adaptive", "display": "summarized"},
+            thinking=_thinking(model, display="summarized"),
             cache_control={"type": "ephemeral"},
         ) as stream:
             async for event in stream:
@@ -98,23 +107,6 @@ class AIClient:
             msg = await stream.get_final_message()
         self._record_usage(request_type, msg)
         yield "message", msg
-
-    async def request_text(self, request_type: str, messages: list[dict]) -> str:
-        """Sends one request and returns its text reply."""
-        async with self._client.messages.stream(
-            model=self._models[TIERS[request_type]],
-            max_tokens=32000,
-            system=load_prompt(request_type),
-            messages=messages,
-            thinking={"type": "adaptive"},
-        ) as stream:
-            msg = await stream.get_final_message()
-        self._record_usage(request_type, msg)
-        if msg.stop_reason == "refusal":
-            raise AIError(f"{request_type}: request refused by {msg.model}")
-        if msg.stop_reason == "max_tokens":
-            raise AIError(f"{request_type}: reply exceeded max_tokens")
-        return "".join(b.text for b in msg.content if b.type == "text")
 
     def tokens(self) -> dict[str, float]:
         """Of all requests so far: input tokens, cached ones included; cached input tokens; output
