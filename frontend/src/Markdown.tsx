@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
@@ -17,16 +18,27 @@ function normalizeMath(text: string): string {
     .join("");
 }
 
-/** With `resolve`, relative image sources are turned into URLs by it. */
-export default function Markdown({ text, resolve }: { text: string; resolve?: (src: string) => string }) {
+/** A URL with a scheme, an absolute path, or only a fragment. */
+const ABSOLUTE = /^([a-z][a-z0-9+.-]*:|\/|#)/i;
+
+/** With `resolve`, relative image sources are turned into URLs by it; with `onOpen`, a click on a relative link
+ * calls it with the link target instead of following it. */
+export default function Markdown({ text, resolve, onOpen }: {
+  text: string; resolve?: (src: string) => string; onOpen?: (href: string) => void;
+}) {
   const urlTransform = (url: string, key: string) => {
     const safe = defaultUrlTransform(url);
-    return resolve && key === "src" && safe && !/^([a-z][a-z0-9+.-]*:|\/)/i.test(safe) ? resolve(safe) : safe;
+    return resolve && key === "src" && safe && !ABSOLUTE.test(safe) ? resolve(safe) : safe;
+  };
+  const components = onOpen && {
+    a: ({ href, children }: { href?: string; children?: ReactNode }) => href && !ABSOLUTE.test(href)
+      ? <a href={href} onClick={(e) => { e.preventDefault(); onOpen(href); }}>{children}</a>
+      : <a href={href}>{children}</a>,
   };
   return (
     <div className="markdown">
       <ReactMarkdown remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }]]} rehypePlugins={[rehypeKatex]}
-        urlTransform={urlTransform}>
+        urlTransform={urlTransform} components={components}>
         {normalizeMath(text)}
       </ReactMarkdown>
     </div>

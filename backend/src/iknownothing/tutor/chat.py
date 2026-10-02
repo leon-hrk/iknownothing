@@ -85,7 +85,7 @@ def _image(rel: str, data: bytes) -> dict:
 
 async def source_content(store: CourseStore, topic: dict) -> list[dict]:
     """Every source of the topic with its blocks as text and the figures in them as images, where they stand, each
-    after its Markdown image line with the path from the course directory."""
+    after its Markdown image line with the path from the course directory. Each passage names its PDF and pages."""
     converted: dict[str, list[str]] = {}
     content: list[dict] = []
     text: list[str] = []
@@ -101,7 +101,8 @@ async def source_content(store: CourseStore, topic: dict) -> list[dict]:
             rel = f"sources/{r['file']}"
             if rel not in converted:
                 converted[rel] = blocks(await asyncio.to_thread(store.read_text, rel))
-            text.append(f'<passage file="{r["file"]}" blocks="{r["blocks"]}">\n')
+            pdf = f"sources/{r['file'].removesuffix('.md')}.pdf"
+            text.append(f'<passage file="{r["file"]}" blocks="{r["blocks"]}" pdf="{pdf}" pages="{r["pages"]}">\n')
             for n in range_numbers(r["blocks"]):
                 block, pos = converted[rel][n - 1], 0
                 for m in FIGURE.finditer(block):

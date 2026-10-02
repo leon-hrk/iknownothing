@@ -166,12 +166,16 @@ During ingestion the topics are data, not Markdown. Ingestion renders
   markers; `topic.md` names these pages.
 * For a topic-level chat, the Tutor loads every source of the topic
   in a `<source>` element with its ID, label, and tier, and in it
-  every block range in a `<passage>` element. Figures in the blocks
-  go as images where they stand, each after its Markdown image line
-  with the path from the course directory.
+  every block range in a `<passage>` element with its PDF and pages.
+  Figures in the blocks go as images where they stand, each after its
+  Markdown image line with the path from the course directory.
 * A task the tutor poses from the sources shows the figures of its
   statement: the tutor copies their image lines into the reply, and
   the chat resolves them against the course's files.
+* The tutor links a task it poses from the sources, and a solution it
+  shows from them, to the first PDF page of the passage, as a relative
+  link with `#page=N`. The chat opens such a link in the document
+  column instead of following it.
 
 === Security
 

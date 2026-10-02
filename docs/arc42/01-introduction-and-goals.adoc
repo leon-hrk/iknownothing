@@ -190,7 +190,10 @@ chooses *End session* and confirms; its chat is then cleared.
   introduction; "quiz me" - exam-style problems with feedback, at the
   difficulty and working time of the exam tasks in its sources.
 * A task posed from the sources shows the figures of its statement
-  in the chat.
+  in the chat, and its label links to the PDF page where the task
+  stands. A solution shown from the sources links to the page where
+  the solution stands. Clicking such a link opens the PDF at that page
+  in the document column.
 * Tier B tasks are offered alongside Tier A ones. The tutor shows the
   reference solution when the student asks for it, and the student
   rates themselves in the chat.

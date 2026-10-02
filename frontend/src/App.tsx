@@ -4,14 +4,14 @@ import {
   addUsage, chooseUser, type Course, type CourseSummary, currentUser, endChat, fileUrl, getChat, getCourse, listCourses,
   listUsers, type Message, NO_USAGE, readFile, UNAUTHORIZED, type Usage,
 } from "./api";
-import Chat, { type OpenChat } from "./Chat";
+import Chat, { type OpenChat, type OpenLink } from "./Chat";
 import Markdown from "./Markdown";
 import Tokens from "./Tokens";
 
 const Pdf = lazy(() => import("./Pdf"));
 
-/** A Markdown file or a source PDF of a course, shown in the document column. */
-type Doc = { course: string; path: string; title: string };
+/** A Markdown file or a source PDF of a course, shown in the document column; a PDF at `page`. */
+type Doc = { course: string; path: string; title: string; page?: number };
 
 /** What a reload restores, remembered per user in the browser. */
 type View = {
@@ -61,7 +61,11 @@ function Document({ doc, version }: { doc: Doc; version: number }) {
     <aside className="document">
       <header><span className="title" title={doc.title}>{doc.title}</span></header>
       <div className="reader">
-        {pdf ? <Suspense fallback={<div className="pending">…</div>}><Pdf url={fileUrl(doc.course, doc.path)} /></Suspense>
+        {pdf ? (
+          <Suspense fallback={<div className="pending">…</div>}>
+            <Pdf key={doc.path} url={fileUrl(doc.course, doc.path)} page={doc.page} opened={doc} />
+          </Suspense>
+        )
           : text === null ? <div className="pending">…</div>
           : text.trim() ? <Markdown text={text} resolve={(src) => fileUrl(doc.course, `${dir}${src}`)} />
           : <p className="muted">{doc.path === CHEATSHEET ? "No cheatsheet yet." : "This file is empty."}</p>}
@@ -229,6 +233,13 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
     setPanel(true);
   }
 
+  const openLink = useCallback<OpenLink>((course, href) => {
+    const [path, fragment] = href.split("#");
+    const page = Number(/^page=(\d+)$/.exec(fragment ?? "")?.[1]) || undefined;
+    setDoc({ course, path, title: `${course} · ${path.replace(/^sources\//, "")}`, page });
+    setPanel(true);
+  }, []);
+
   function togglePanel() {
     if (!panel && !doc && chat) setDoc({ course: chat.course, path: CHEATSHEET, title: `${chat.course} · Cheatsheet` });
     setPanel((p) => !p);
@@ -352,7 +363,7 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
         </header>
         {chat && (
           <Chat key={chat.id} open={chat} update={(t) => update(chat.id, t)} onCheatsheet={onCheatsheet}
-            onUsage={(u) => onUsage(chat.id, u)} onBusy={setBusy} />
+            onUsage={(u) => onUsage(chat.id, u)} onBusy={setBusy} onOpen={openLink} />
         )}
         {!chat && <p className="hint">{user ? "Open a course to start." : "Choose a user at the bottom left."}</p>}
       </main>

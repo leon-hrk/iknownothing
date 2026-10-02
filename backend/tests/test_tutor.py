@@ -55,13 +55,13 @@ def test_context(store):
     assert [b["type"] for b in ctx] == ["text", "image", "text", "text"]
     assert ctx[0]["text"] == (
         '<source id="laplace/1" task="Klausur 2023, Aufgabe 2b" tier="A" fit="clear">\n'
-        '<passage file="exams/2023.md" blocks="5-7">\n# Aufgabe 2\n\nGegeben:\n\n'
+        '<passage file="exams/2023.md" blocks="5-7" pdf="sources/exams/2023.pdf" pages="2">\n# Aufgabe 2\n\nGegeben:\n\n'
         '![](sources/exams/2023/p2-img-0.jpeg)\n')
     assert base64.b64decode(ctx[1]["source"]["data"]) == b"jpeg"
     assert ctx[2]["text"] == (
-        '\n\n</passage>\n<passage file="exams/2023.md" blocks="9">\nb) Teil b\n\n</passage>\n</source>\n\n'
+        '\n\n</passage>\n<passage file="exams/2023.md" blocks="9" pdf="sources/exams/2023.pdf" pages="2">\nb) Teil b\n\n</passage>\n</source>\n\n'
         '<source id="laplace/2" task="Übung 1, Aufgabe 1" tier="B" fit="loose">\n'
-        '<passage file="exercises/uebung1.md" blocks="2-3">\nÜbung 1\n\nLösung\n\n</passage>\n</source>\n\n')
+        '<passage file="exercises/uebung1.md" blocks="2-3" pdf="sources/exercises/uebung1.pdf" pages="1">\nÜbung 1\n\nLösung\n\n</passage>\n</source>\n\n')
     assert "cache_control" in ctx[2] and "cache_control" not in ctx[0]
     assert "<cheatsheet>\n(empty)\n</cheatsheet>" in ctx[-1]["text"]
 

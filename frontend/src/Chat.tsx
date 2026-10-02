@@ -35,7 +35,10 @@ function note(b: Block): string | null {
 /** Course files referenced in a reply, e.g. the figures of a posed task. */
 const courseFiles = (course: string) => (src: string) => fileUrl(course, src);
 
-const Turn = memo(function Turn({ message, course }: { message: Message; course: string }) {
+/** Opens a course file a reply links to, e.g. `sources/exams/2023.pdf#page=3`. */
+export type OpenLink = (course: string, href: string) => void;
+
+const Turn = memo(function Turn({ message, course, onOpen }: { message: Message; course: string; onOpen: OpenLink }) {
   if (message.role === "user") {
     const text = blocks(message.content).filter((b) => b.type === "text").map((b) => b.text as string).join("\n");
     return text ? <div className="user">{text}</div> : null;
@@ -43,7 +46,9 @@ const Turn = memo(function Turn({ message, course }: { message: Message; course:
   return (
     <>
       {blocks(message.content).map((b, i) => {
-        if (b.type === "text") return <Markdown key={i} text={b.text as string} resolve={courseFiles(course)} />;
+        if (b.type === "text") {
+          return <Markdown key={i} text={b.text as string} resolve={courseFiles(course)} onOpen={(h) => onOpen(course, h)} />;
+        }
         if (b.type === "thinking") return b.thinking ? <Thinking key={i} text={b.thinking as string} open={false} /> : null;
         const n = note(b);
         return n ? <div key={i} className="note">{n}</div> : null;
@@ -52,12 +57,13 @@ const Turn = memo(function Turn({ message, course }: { message: Message; course:
   );
 });
 
-export default function Chat({ open, update, onCheatsheet, onUsage, onBusy }: {
+export default function Chat({ open, update, onCheatsheet, onUsage, onBusy, onOpen }: {
   open: OpenChat;
   update: (transcript: Message[]) => void;
   onCheatsheet: () => void;
   onUsage: (usage: Usage) => void;
   onBusy: (busy: boolean) => void;
+  onOpen: OpenLink;
 }) {
   const [input, setInput] = useState("");
   const [live, setLive] = useState<Part[] | null>(null);
@@ -125,8 +131,8 @@ export default function Chat({ open, update, onCheatsheet, onUsage, onBusy }: {
             {open.topic ? "Ask for an introduction, or say \"quiz me\"." : "Ask where you stand and what to work on next."}
           </p>
         )}
-        {open.transcript.map((m, i) => <Turn key={i} message={m} course={open.course} />)}
-        {live?.map((p, i) => p.kind === "text" ? <Markdown key={i} text={p.text} resolve={courseFiles(open.course)} />
+        {open.transcript.map((m, i) => <Turn key={i} message={m} course={open.course} onOpen={onOpen} />)}
+        {live?.map((p, i) => p.kind === "text" ? <Markdown key={i} text={p.text} resolve={courseFiles(open.course)} onOpen={(h) => onOpen(open.course, h)} />
           : p.kind === "thinking" ? <Thinking key={i} text={p.text} open />
           : <div key={i} className="note">{p.text}</div>)}
         {live && (tool || live.at(-1)?.kind !== "text") && (
