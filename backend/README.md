@@ -13,8 +13,9 @@ run in the container:
 docker compose exec backend pytest
 ```
 
-Ingestion logs the token usage of every request; `course add` prints
-the totals per model at the end.
+Ingestion logs the token usage of every request; `course add`,
+`course update`, and `course ingest` print the totals per model at the
+end.
 
 ## API
 

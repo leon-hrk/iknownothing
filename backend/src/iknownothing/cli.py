@@ -53,11 +53,16 @@ def run_ingest(settings: Settings, store: CourseStore) -> None:
 
 def course_add(settings: Settings, args: argparse.Namespace) -> None:
     store = course_store(settings, args.user, args.course)
-    if args.source:
-        courses.copy_from(store, CourseStore(settings.data_dir, args.source, args.course))
-        print(f"copied {args.source}/{args.course} to {args.user}")
-        return
     courses.add_from_dir(store, settings.courses_dir / (args.dir or args.course))
+    run_ingest(settings, store)
+
+
+def course_update(settings: Settings, args: argparse.Namespace) -> None:
+    store = course_store(settings, args.user, args.course)
+    if not store.exists():
+        raise CommandError(f"no such course: {args.user}/{args.course}")
+    added = courses.update_from_dir(store, settings.courses_dir / (args.dir or args.course))
+    print(f"added {len(added)} PDFs" + "".join(f"\n  {rel}" for rel in added))
     run_ingest(settings, store)
 
 
@@ -87,15 +92,16 @@ def main() -> None:
         p.set_defaults(func=user_command)
 
     course = sub.add_parser("course").add_subparsers(required=True)
-    p = course.add_parser("add", help="hand a course to a user: ingest it from a directory under courses/, "
-                                      "or copy it from another user without their cheatsheet, progress, and token usage")
-    p.add_argument("user")
-    p.add_argument("course")
-    source = p.add_mutually_exclusive_group()
-    source.add_argument("dir", nargs="?", help="directory under courses/ with notes.md, exams/, exercises/; "
-                                               "defaults to the course name")
-    source.add_argument("--from", dest="source", metavar="USER", help="user whose ingested course to copy")
-    p.set_defaults(func=course_add)
+    for command, help, func in [
+        ("add", "hand a course to a user: ingest it from a directory under courses/", course_add),
+        ("update", "add the new PDFs of the course's directory under courses/ and ingest them", course_update),
+    ]:
+        p = course.add_parser(command, help=help)
+        p.add_argument("user")
+        p.add_argument("course")
+        p.add_argument("dir", nargs="?", help="directory under courses/ with notes.md, exams/, exercises/; "
+                                              "defaults to the course name")
+        p.set_defaults(func=func)
     p = course.add_parser("ingest", help="run the ingestion steps whose results are missing, e.g. after a failure")
     p.add_argument("user")
     p.add_argument("course")

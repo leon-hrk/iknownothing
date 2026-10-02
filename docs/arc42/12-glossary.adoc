@@ -56,7 +56,8 @@
 
 | Ingestion
 | The pipeline that turns a course's PDFs into Markdown, topics with
-  their sources, topic directories, and the topic list.
+  their sources, topic directories, the topic list, and reference
+  solutions. On an ingested course, it reads only what was added.
 
 | Living artifact
 | A file derived from the student rather than from the material:
@@ -150,7 +151,8 @@
 | Unit
 | The files of one past exam or one exercise sheet with its
   solutions, which carry the same number in their names. Topic
-  extraction and task assignment read one unit per request.
+  extraction and task assignment read one unit per request; a unit
+  that gains a document after it was read is read again.
 
 | v0
 | The first version. Its scope is chapter 1; what it does not include

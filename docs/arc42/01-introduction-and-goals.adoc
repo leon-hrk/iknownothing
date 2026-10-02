@@ -101,6 +101,16 @@ The course language is detected here.
   `topics/<topic>/solutions.md`, marked as written by the AI and not
   the course's (see <<adr-reference-solutions>>).
 
+Material can be added to an ingested course - a further past exam,
+an exercise sheet, or the solutions to one the course has. Ingestion
+then reads only the new units: a new exam is extracted against the
+topics so far and may add topics or change existing ones; a unit that
+gained a document is read again without duplicating its tasks;
+grouping runs again, so exercise-only topics can join a new topic of
+the exams; priorities are recomputed; and the reference solutions of
+topics whose tasks changed are written again. A PDF the course has
+cannot be replaced.
+
 Source priority for what a topic is: *past exams > exercises*. For
 solution style and notation it *inverts*: exercise solutions, then
 past exam solutions, outrank the exam question itself. The exam says
@@ -355,9 +365,8 @@ Direction, not a plan. Nothing here is designed.
 * *Editing in the UI.* The student edits `notes.md` and
   `cheatsheet.md` directly; afterwards the AI reworks the edited file
   so it is consistent again.
-* *Course updates.* Adding material to an existing course, editing
-  derived files, and incremental re-ingestion that rebuilds only what
-  a change affects while keeping student progress and user edits.
+* *Editing derived files*, and keeping student progress and user
+  edits across every change a course update makes to the topics.
 * *Upload in the UI.* The student creates a course and uploads its
   PDFs and `notes.md` in the browser, and ingestion runs in the
   background while the UI shows its progress.

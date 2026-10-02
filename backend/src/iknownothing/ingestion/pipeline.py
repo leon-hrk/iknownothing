@@ -1,6 +1,7 @@
 """The ingestion pipeline: conversion, topic extraction unit by unit, topic files, and topic list."""
 
 import asyncio
+import hashlib
 import json
 import re
 from collections.abc import Callable
@@ -74,6 +75,11 @@ async def ingest(store: CourseStore, ai: AIClient, ocr: OCRClient, report: Repor
 
     result = store.read_json(RESULT) if store.exists(RESULT) else {"language": None, "done": [], "topics": []}
 
+    for u in exams + exercises:
+        titles = {title(f) for f in u}
+        if titles & set(result["done"]) and not titles <= set(result["done"]):
+            result = _reread(result, titles)
+
     def todo(us: list[list[str]]) -> list[list[str]]:
         return [u for u in us if not {title(f) for f in u} <= set(result["done"])]
 
@@ -110,11 +116,12 @@ async def ingest(store: CourseStore, ai: AIClient, ocr: OCRClient, report: Repor
             if isinstance(reply, BaseException):
                 raise reply
 
-    other = next((t for t in result["topics"] if t["slug"] == OTHER), None)
-    if other and not result.get("grouped"):
-        report(f"task grouping: {len(other['sources'])} tasks without a topic")
-        reply = await _group(store, ai, other, result["topics"])
-        result = {**result, "topics": apply_grouping(result["topics"], reply), "grouped": True}
+    candidates = _regroupable(result["topics"], bool(exams))
+    if candidates and result.get("grouped") != _grouping_state(result["topics"], candidates):
+        report(f"task grouping: {len(candidates)} tasks")
+        reply = await _group(store, ai, candidates, result["topics"])
+        topics = apply_grouping(result["topics"], candidates, reply)
+        result = {**result, "topics": topics, "grouped": _grouping_state(topics, _regroupable(topics, bool(exams)))}
         store.write_json(RESULT, result)
 
     report("topic files")
@@ -133,28 +140,63 @@ async def ingest(store: CourseStore, ai: AIClient, ocr: OCRClient, report: Repor
                          render_topic({**t, "sources": entry["sources"]}, len(exam_units)))
     store.write_json("topics.json", listed)
 
-    solved = set(result.get("solved", []))
-    pending = [e for e in listed if e["slug"] not in solved and any(s["tier"] != "C" for s in e["sources"])]
+    solved = result.get("solved", {})
+    pending = [e for e in listed if solved.get(e["slug"]) != _signature(e)]
     if pending:
         report(f"solutions: {len(pending)} topics")
         limit = asyncio.Semaphore(PARALLEL)
 
         async def solve(entry: dict) -> dict:
+            if all(s["tier"] == "C" for s in entry["sources"]):
+                return {"solutions": []}
             async with limit:
                 return await _solve(store, ai, entry, result["language"])
 
         replies = await asyncio.gather(*(solve(e) for e in pending), return_exceptions=True)
         for entry, reply in zip(pending, replies):
             if not isinstance(reply, BaseException):
+                rel = f"{entry['dir']}/{SOLUTIONS}"
                 if reply["solutions"]:
-                    store.write_text(f"{entry['dir']}/{SOLUTIONS}", render_solutions(reply["solutions"]))
-                solved.add(entry["slug"])
-        result = {**result, "solved": sorted(solved)}
+                    store.write_text(rel, render_solutions(reply["solutions"]))
+                else:
+                    store.delete(rel)
+                solved = {**solved, entry["slug"]: _signature(entry)}
+        result = {**result, "solved": {e["slug"]: solved[e["slug"]] for e in listed if e["slug"] in solved}}
         store.write_json(RESULT, result)
         for reply in replies:
             if isinstance(reply, BaseException):
                 raise reply
     report(f"ready: {len(topics)} topics, language {result['language']}")
+
+
+def _reread(result: dict, titles: set[str]) -> dict:
+    """The result without what an earlier reading of a unit added: its documents are no longer done, its sources
+    are gone, and so are the topics only they made up."""
+    topics = []
+    for t in result["topics"]:
+        sources = [s for s in t["sources"] if not any(r["file"] in titles for r in s["blocks"])]
+        if sources or not t["sources"]:
+            topics.append({**t, "sources": sources})
+    return {**result, "done": [d for d in result["done"] if d not in titles], "topics": topics}
+
+
+def _regroupable(topics: list[Topic], exams: bool) -> list[tuple[str, dict]]:
+    """The tasks grouping may move, each with its topic: those of `OTHER` and, in a course with past exams, those of
+    the topics no past exam asks for."""
+    return [(t["slug"], s) for t in topics for s in t["sources"]
+            if t["slug"] == OTHER or exams and not any(r["file"].startswith("exams/")
+                                                       for s2 in t["sources"] for r in s2["blocks"])]
+
+
+def _grouping_state(topics: list[Topic], candidates: list[tuple[str, dict]]) -> list[str]:
+    """What grouping depends on: the topics and the tasks it may move. Grouping runs again when it changes."""
+    return [*sorted(t["slug"] for t in topics), *sorted(f"{slug}: {s['task']}" for slug, s in candidates)]
+
+
+def _signature(entry: dict) -> str:
+    """What a topic's reference solutions depend on: its tasks with their tiers and blocks."""
+    tasks = [[s["task"], s["tier"], s["blocks"]] for s in entry["sources"]]
+    return hashlib.sha256(json.dumps(tasks, ensure_ascii=False).encode()).hexdigest()[:16]
 
 
 def _sources(store: CourseStore, topic: Topic) -> list[dict]:
@@ -206,24 +248,25 @@ async def _assign(store: CourseStore, ai: AIClient, files: list[str], topics: li
     )
 
 
-async def _group(store: CourseStore, ai: AIClient, other: Topic, topics: list[Topic]) -> dict:
-    """Sends the tasks of `OTHER`, numbered, with their blocks, and the other topics."""
+async def _group(store: CourseStore, ai: AIClient, candidates: list[tuple[str, dict]], topics: list[Topic]) -> dict:
+    """Sends the tasks grouping may move, numbered, each with its topic and blocks, and the other topics."""
     converted: dict[str, list[str]] = {}
     tasks = []
-    for i, s in enumerate(other["sources"], 1):
+    for i, (slug, s) in enumerate(candidates, 1):
         passages = []
         for r in s["blocks"]:
             if r["file"] not in converted:
                 converted[r["file"]] = blocks(await asyncio.to_thread(store.read_text, f"sources/{r['file']}"))
             text = "\n\n".join(FIGURE.sub("[figure]", converted[r["file"]][n - 1]) for n in range_numbers(r["blocks"]))
             passages.append(f'<passage file="{r["file"]}">\n{text}\n</passage>')
-        tasks.append(f'<task index="{i}" label="{s["task"]}" tier="{s["tier"]}">\n' + "\n".join(passages) + "\n</task>")
+        tasks.append(f'<task index="{i}" label="{s["task"]}" tier="{s["tier"]}" topic="{slug}">\n'
+                     + "\n".join(passages) + "\n</task>")
     rest = [t for t in topics if t["slug"] != OTHER]
     documents = [{"type": "text", "text": "<tasks>\n" + "\n\n".join(tasks) + "\n</tasks>"}]
     known = {t["slug"] for t in rest}
     return await _request_valid(
         ai, "task_grouping", documents, f"<topics>\n{_topics_so_far(rest)}\n</topics>", GROUPING_SCHEMA,
-        lambda r: validate_grouping(r, known, len(other["sources"])),
+        lambda r: validate_grouping(r, known, len(candidates)),
     )
 
 

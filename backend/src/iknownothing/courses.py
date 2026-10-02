@@ -5,9 +5,6 @@ from pathlib import Path
 
 from iknownothing.course_store import DOC_TYPES, CourseStore
 
-STUDENT_STATE = ("cheatsheet.md", "progress.json", "usage.json", "chat.json")
-
-
 class CourseError(Exception):
     pass
 
@@ -16,10 +13,8 @@ def status(store: CourseStore) -> str:
     return "ready" if store.exists("topics.json") else "not ingested"
 
 
-def add_from_dir(store: CourseStore, src: Path) -> None:
-    """Copies the course material in `src` - notes.md, exams/*.pdf, exercises/*.pdf - into a new course."""
-    if store.exists():
-        raise CourseError(f"course exists: {store.user}/{store.course}")
+def _material(src: Path) -> dict[str, list[Path]]:
+    """The PDFs of a course directory - notes.md, exams/*.pdf, exercises/*.pdf - by document type, after checking it."""
     if not src.is_dir():
         raise CourseError(f"no such directory: {src}")
     for p in src.iterdir():
@@ -34,22 +29,38 @@ def add_from_dir(store: CourseStore, src: Path) -> None:
             raise CourseError(f"not a .pdf file: {f}")
     if not any(sources.values()):
         raise CourseError(f"no PDFs in {', '.join(str(src / t) for t in DOC_TYPES)}")
+    return sources
 
+
+def add_from_dir(store: CourseStore, src: Path) -> None:
+    """Copies the course material in `src` - notes.md, exams/*.pdf, exercises/*.pdf - into a new course."""
+    if store.exists():
+        raise CourseError(f"course exists: {store.user}/{store.course}")
+    sources = _material(src)
     store.write_text("notes.md", (src / "notes.md").read_text(encoding="utf-8"))
     for doc_type, files in sources.items():
         for f in files:
             store.write_bytes(f"sources/{doc_type}/{f.name}", f.read_bytes())
 
 
-def copy_from(store: CourseStore, src: CourseStore) -> None:
-    """Copies an ingested course of another user, without the student state."""
-    if store.exists():
-        raise CourseError(f"course exists: {store.user}/{store.course}")
-    if not src.exists("topics.json"):
-        raise CourseError(f"not an ingested course: {src.user}/{src.course}")
-    for rel in src.files():
-        if rel.split("/")[-1] not in STUDENT_STATE:
-            store.write_bytes(rel, src.read_bytes(rel))
+def update_from_dir(store: CourseStore, src: Path) -> list[str]:
+    """Copies the PDFs in `src` that the course does not have yet, and its notes.md; returns the PDFs copied. A PDF
+    the course has must be unchanged."""
+    if not store.exists("topics.json"):
+        raise CourseError(f"not an ingested course: {store.user}/{store.course}")
+    sources = _material(src)
+    added = []
+    for doc_type, files in sources.items():
+        for f in files:
+            rel = f"sources/{doc_type}/{f.name}"
+            if not store.exists(rel):
+                added.append(rel)
+            elif store.read_bytes(rel) != f.read_bytes():
+                raise CourseError(f"changed: {f}; a PDF of an ingested course cannot be replaced")
+    store.write_text("notes.md", (src / "notes.md").read_text(encoding="utf-8"))
+    for rel in added:
+        store.write_bytes(rel, (src / rel.removeprefix("sources/")).read_bytes())
+    return added
 
 
 USAGE = "usage.json"

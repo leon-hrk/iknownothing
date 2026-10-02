@@ -56,8 +56,9 @@ include::diagrams/building-blocks-level2.puml[]
   ingested, read from the files - and reading course files through
   the Course Store. The operator's course commands: adding a course
   for a user from a directory of PDFs and `notes.md` and ingesting it,
-  copying an ingested course from another user, resuming a failed
-  ingestion, and removing a course.
+  adding the new PDFs of that directory to an ingested course and
+  ingesting them, resuming a failed ingestion, and removing a
+  course.
 | -
 
 | Course Store

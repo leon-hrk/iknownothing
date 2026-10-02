@@ -40,8 +40,8 @@ request per topic with the topic's tasks and the solutions the
 material has. The chat grades against it.
 
 Consequences::
-The cost is paid once per course and shared with every student the
-course is handed to with `--from`, not per message. The reference can
+The cost is paid once per course, and again only for topics whose
+tasks change, not per message. The reference can
 still be wrong; it is marked as written by the AI, and the tutor
 checks it when the student's answer differs. A course is ready before
 its reference solutions are written.
@@ -67,8 +67,10 @@ every exercise sheet is assigned to these topics in parallel requests
 that cannot create topics; a task that only possibly belongs to a
 topic goes to it as a loose fit, and a task no topic relates to goes
 to a topic `other-tasks`. A last request groups the tasks of
-`other-tasks` into topics of their own. Without past exams, the exercise sheets define the
-topics one after another. Ingestion checks every reply, applies it,
+`other-tasks` into topics of their own and moves tasks of topics no
+past exam asks for into topics they clearly belong to; it runs again
+whenever the topics or these tasks change. Without past exams, the
+exercise sheets define the topics one after another. Ingestion checks every reply, applies it,
 and stores the result. The priority of a topic is computed from the
 past exams its sources stand in.
 
@@ -180,7 +182,9 @@ image, which runs the pipeline in its own process.
 Consequences::
 There is no worker service and no job queue to deploy. An ingestion blocks the operator's terminal
 for its duration; a failed one is resumed with a second command and
-skips the steps whose results already exist. Upload by students (chapter
+skips the steps whose results already exist. Material added to an
+ingested course is ingested by a further command that reads only the
+new units and redoes only the steps they change. Upload by students (chapter
 1, out of scope) needs ingestion in the background and brings back a
 job queue.
 

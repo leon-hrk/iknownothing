@@ -137,12 +137,15 @@ During ingestion the topics are data, not Markdown. Ingestion renders
   `other-tasks`, a topic ingestion creates for the tasks no topic
   relates to. `topic.md` marks a loose fit, and the tutor uses such
   a task only where it serves the topic.
-* *Task grouping* finally reads the tasks of `other-tasks`, numbered,
-  with their blocks, and the topics. The reply holds new topics for
-  tasks that practise the same skill, and every task that leaves
-  `other-tasks` with its topic and fit. Tasks that fit nowhere stay;
-  an empty `other-tasks` is removed. The new topics have no past exam
-  and so priority `low`. Without past exams, the
+* *Task grouping* finally reads the tasks of `other-tasks` and, in a
+  course with past exams, those of the topics no past exam asks for -
+  numbered, each with its topic and blocks - and the topics. The
+  reply holds new topics for tasks of `other-tasks` that practise the
+  same skill, and every task that moves with its new topic and fit; a
+  task of a topic no past exam asks for moves only when it clearly
+  practises the skill of another topic. Tasks that fit nowhere stay;
+  a topic of these tasks left empty is removed. The new topics have
+  no past exam and so priority `low`. Without past exams, the
   exercise sheets go through topic extraction instead.
 * Ingestion checks every reply - valid, unique slugs, a source for
   every new topic the notes do not raise, known topics and files, and
@@ -150,9 +153,14 @@ During ingestion the topics are data, not Markdown. Ingestion renders
   on a violation. It applies the replies in unit order and writes the
   topics and the files read so far to `ingestion/topics.json`: after
   every exam, once after all exercise sheets, including those of a
-  failed ingestion that succeeded, and after the grouping, which it
-  marks as done. A resumed ingestion reads only the units not read
-  and groups only if it has not grouped yet.
+  failed ingestion that succeeded, and after the grouping, with the
+  topic slugs and the tasks the grouping could move. A later
+  ingestion reads only the units not read, and groups again only if
+  those differ.
+* A unit with a document not read yet whose other documents were read
+  - solutions added to an exam, say - is read again: its earlier
+  sources and the topics only they made up are removed first, so its
+  tasks are not duplicated.
 * The priority counts exams, not points, and is computed after the
   last unit: `high` if at least three quarters of the past exams have
   a source in the topic, `medium` if one does, `low` if none does.
@@ -197,10 +205,12 @@ Tier A or B task whose blocks hold no solution (see
   writes `topics/<topic>/solutions.md` - each solution under its task
   label, below a line saying the AI wrote them, not the course; a
   solution resting on values read from a figure is marked as such -
-  and
-  records the topic in `ingestion/topics.json`. A topic whose tasks
-  all have solutions gets no file. A resumed ingestion writes only
-  the topics not recorded.
+  and records in `ingestion/topics.json` a signature of the topic's
+  tasks: labels, tiers, and blocks. A topic whose tasks all have
+  solutions gets no file, or loses it. A later ingestion writes the
+  solutions of a topic again whenever its tasks differ from the
+  signature - new tasks, moved tasks, or a task that got solution
+  blocks.
 * The tutor grades such a task against its reference solution and
   tells the student once that the AI wrote it. When the student's
   answer differs, it checks both, since the reference can be wrong.
@@ -227,7 +237,7 @@ deletes it with all their courses.
 
 ....
 docker compose exec backend iknownothing course add <user> <course> [<dir>]
-docker compose exec backend iknownothing course add <user> <course> --from <other-user>
+docker compose exec backend iknownothing course update <user> <course> [<dir>]
 docker compose exec backend iknownothing course ingest <user> <course>
 docker compose exec backend iknownothing course remove <user> <course>
 ....
@@ -235,9 +245,12 @@ docker compose exec backend iknownothing course remove <user> <course>
 * `add` copies `notes.md`, `exams/*.pdf`, and `exercises/*.pdf` from
   `courses/<dir>/` (`<dir>` defaults to the course name) into the
   user's course and ingests it (<<runtime-ingestion>>).
-* `add --from` copies the ingested course of the same name from
-  another user, without its student state, and makes no AI call.
-* `ingest` resumes an ingestion that failed.
+* `update` copies `notes.md` and the PDFs of `courses/<dir>/` that an
+  ingested course does not have yet, refuses a PDF whose content
+  differs from the course's copy, and ingests what is new
+  (<<runtime-ingestion>>).
+* `ingest` runs the ingestion steps whose results are missing, e.g.
+  after a failure.
 * `remove` deletes the course with the student's state.
 
 The frontend lists all users; the student picks themselves, and the

@@ -38,14 +38,15 @@ courses/control-theory/
 
 ```sh
 docker compose exec backend iknownothing course add alice control-theory
-docker compose exec backend iknownothing course add bob control-theory --from alice
+docker compose exec backend iknownothing course update alice control-theory  # adds and ingests new PDFs
 docker compose exec backend iknownothing course ingest alice control-theory   # runs the ingestion steps whose results are missing
 docker compose exec backend iknownothing course remove alice control-theory
 ```
 
-`add` ingests the course, which takes a few minutes and costs one
-large request. `add --from` copies alice's ingested course without her
-cheatsheet and progress, at no cost.
+`add` ingests the course, which takes a few minutes. `update` takes
+the PDFs added to `courses/<course>/` since - a further exam, an
+exercise sheet, the solutions to one - and ingests only what they
+change; a PDF the course has cannot be replaced.
 
 ## Development
 

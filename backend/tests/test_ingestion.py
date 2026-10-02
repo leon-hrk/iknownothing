@@ -5,7 +5,9 @@ import pytest
 from iknownothing.course_store import CourseStore, CourseStoreError
 from iknownothing.ingestion.conversion import blocks, inline_math, page_of
 from iknownothing.ingestion.pipeline import by_unit, ingest
-from iknownothing.ingestion.topics import priority, range_numbers, validate_grouping, validate_unit
+from iknownothing.ingestion.topics import (
+    OTHER, apply_grouping, priority, range_numbers, validate_grouping, validate_unit,
+)
 
 
 def new(slug, raised=False):
@@ -117,7 +119,7 @@ class FakeAI:
             return {"solutions": []}
         if request_type == "task_grouping":
             self.calls.append((request_type, None))
-            assert texts[0].startswith('<tasks>\n<task index="1" label="Übung 1, Aufgabe 2" tier="A">\n'
+            assert texts[0].startswith('<tasks>\n<task index="1" label="Übung 1, Aufgabe 2" tier="A" topic="other-tasks">\n'
                                        '<passage file="exercises/uebung1.md">\n')
             assert '<task index="2" label="Übung 2, Aufgabe 2"' in texts[0] and "other-tasks" not in texts[-1]
             return {"topics": [new("registers")], "tasks": [{"index": 1, "topic": "registers", "fit": "clear"}]}
@@ -210,3 +212,60 @@ def test_ingest_unit_by_unit_and_resume(store):
     ai = FakeAI()
     asyncio.run(ingest(store, ai, FakeOCR(), report=lambda s: None))
     assert ai.calls == []
+
+
+class UpdateAI:
+    """Topic extraction for the exams 2023 - with its solutions once they are there - and 2025."""
+
+    def __init__(self):
+        self.calls = []
+
+    async def request_json(self, request_type, messages, schema):
+        texts = [b["text"] for b in messages[0]["content"] if b["type"] == "text"]
+        first = texts[0].split('"')[1]
+        self.calls.append((request_type, first))
+        if request_type == "solution_writing":
+            return {"solutions": []}
+        if first == "exams/2023.md":
+            ranges = [{"file": "exams/2023.md", "blocks": "2-4"}]
+            if '<document title="exams/2023_loesung.md">' in "".join(texts):
+                ranges.append({"file": "exams/2023_loesung.md", "blocks": "2"})
+            return {"language": "German", "topics": [new("laplace")],
+                    "sources": [{"topic": "laplace", "task": "Klausur 2023, Aufgabe 1", "tier": "A", "blocks": ranges}]}
+        return {"language": "German", "topics": [new("bode")],
+                "sources": [source("bode", "Klausur 2025, Aufgabe 1", "exams/2025.md", "2")]}
+
+
+def test_update_reads_new_and_changed_units_once(store):
+    store.write_text("notes.md", "notes")
+    store.write_bytes("sources/exams/2023.pdf", b"%PDF")
+    ai = UpdateAI()
+    asyncio.run(ingest(store, ai, FakeOCR(), report=lambda s: None))
+    assert ai.calls == [("topic_extraction", "exams/2023.md"), ("solution_writing", "laplace/1")]
+
+    store.write_bytes("sources/exams/2023_loesung.pdf", b"%PDF")
+    store.write_bytes("sources/exams/2025.pdf", b"%PDF")
+    ai = UpdateAI()
+    asyncio.run(ingest(store, ai, FakeOCR(), report=lambda s: None))
+    assert ai.calls[:2] == [("topic_extraction", "exams/2023.md"), ("topic_extraction", "exams/2025.md")]
+    assert sorted(ai.calls[2:]) == [("solution_writing", "bode/1"), ("solution_writing", "laplace/1")]
+    listed = {t["slug"]: t for t in store.read_json("topics.json")}
+    assert sorted(listed) == ["bode", "laplace"]
+    assert [[r["file"] for r in s["blocks"]] for s in listed["laplace"]["sources"]] == [
+        ["exams/2023.md", "exams/2023_loesung.md"]]
+
+    ai = UpdateAI()
+    asyncio.run(ingest(store, ai, FakeOCR(), report=lambda s: None))
+    assert ai.calls == []
+
+
+def test_apply_grouping_moves_candidates_and_drops_emptied_topics():
+    t1 = {"task": "Übung 1, Aufgabe 1", "tier": "A", "fit": "clear", "blocks": []}
+    t2 = {"task": "Übung 2, Aufgabe 1", "tier": "A", "fit": "clear", "blocks": []}
+    topics = [{**new("laplace"), "sources": []}, {**new("drill"), "sources": [t1]}, {**new(OTHER), "sources": [t2]}]
+    reply = {"topics": [new("bode")], "tasks": [{"index": 1, "topic": "laplace", "fit": "loose"},
+                                                {"index": 2, "topic": "bode", "fit": "clear"}]}
+    grouped = apply_grouping(topics, [("drill", t1), (OTHER, t2)], reply)
+    assert [(t["slug"], [s["task"] for s in t["sources"]]) for t in grouped] == [
+        ("laplace", ["Übung 1, Aufgabe 1"]), ("bode", ["Übung 2, Aufgabe 1"])]
+    assert grouped[0]["sources"][0]["fit"] == "loose"

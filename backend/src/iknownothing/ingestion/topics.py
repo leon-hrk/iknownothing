@@ -199,19 +199,20 @@ def validate_solutions(reply: dict, labels: set[str]) -> list[str]:
     return errors
 
 
-def apply_grouping(topics: list[Topic], reply: dict) -> list[Topic]:
-    """The topics with the grouping's new topics, and the tasks of `OTHER` moved as it says; `OTHER` last, and
-    gone once empty."""
+def apply_grouping(topics: list[Topic], candidates: list[tuple[str, dict]], reply: dict) -> list[Topic]:
+    """The topics with the grouping's new topics and the `candidates` - tasks with their topics - moved as it says;
+    a topic of the candidates that is left empty is gone, `OTHER` last."""
     by_slug = {t["slug"]: {**t, "sources": list(t["sources"])} for t in topics}
-    other = by_slug.pop(OTHER)
     for t in reply["topics"]:
         by_slug[t["slug"]] = {**t, "raised_by_notes": False, "sources": []}
-    moved = {m["index"] - 1: m for m in reply["tasks"] if m["topic"] != OTHER}
-    for i, s in enumerate(other["sources"]):
-        if i in moved:
-            by_slug[moved[i]["topic"]]["sources"].append({**s, "fit": moved[i]["fit"]})
-    rest = [s for i, s in enumerate(other["sources"]) if i not in moved]
-    return [*by_slug.values(), *([{**other, "sources": rest}] if rest else [])]
+    for m in reply["tasks"]:
+        slug, s = candidates[m["index"] - 1]
+        if m["topic"] != slug:
+            by_slug[slug]["sources"].remove(s)
+            by_slug.setdefault(m["topic"], {**OTHER_TOPIC, "sources": []})["sources"].append({**s, "fit": m["fit"]})
+    emptied = {slug for slug, _ in candidates}
+    kept = [t for t in by_slug.values() if t["sources"] or t["slug"] not in emptied]
+    return [*(t for t in kept if t["slug"] != OTHER), *(t for t in kept if t["slug"] == OTHER)]
 
 
 def apply_unit(topics: list[Topic], reply: dict) -> list[Topic]:

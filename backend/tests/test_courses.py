@@ -2,7 +2,6 @@ import pytest
 
 from iknownothing import courses
 from iknownothing.course_store import CourseStore
-from test_tutor import store  # noqa: F401
 
 
 def material(tmp_path):
@@ -38,13 +37,19 @@ def test_add_from_dir_checks(tmp_path, change, error):
     assert not store.exists()
 
 
-def test_copy_from(store, tmp_path):  # noqa: F811
-    store.write_text("cheatsheet.md", "# Cheatsheet")
-    store.write_json("topics/laplace/progress.json", {"introduction": True})
-    store.write_json("topics/laplace/usage.json", {"input": 1, "output": 1})
-    copy = CourseStore(store.root.parent.parent, "bob", "control")
-    courses.copy_from(copy, store)
-    assert copy.files() == [f for f in store.files() if not f.endswith(courses.STUDENT_STATE)]
-    assert courses.status(copy) == "ready"
-    with pytest.raises(courses.CourseError, match="exists"):
-        courses.copy_from(copy, store)
+def test_update_from_dir(tmp_path):
+    src = material(tmp_path)
+    store = CourseStore(tmp_path / "data", "bob", "control")
+    courses.add_from_dir(store, src)
+    with pytest.raises(courses.CourseError, match="not an ingested course"):
+        courses.update_from_dir(store, src)
+    store.write_json("topics.json", [])
+    (src / "exercises").mkdir()
+    (src / "exercises" / "uebung1.pdf").write_bytes(b"%PDF-1")
+    (src / "notes.md").write_text("more notes")
+    assert courses.update_from_dir(store, src) == ["sources/exercises/uebung1.pdf"]
+    assert store.read_text("notes.md") == "more notes" and store.read_bytes("sources/exercises/uebung1.pdf") == b"%PDF-1"
+    assert courses.update_from_dir(store, src) == []
+    (src / "exams" / "2023.pdf").write_bytes(b"%PDF-changed")
+    with pytest.raises(courses.CourseError, match="changed"):
+        courses.update_from_dir(store, src)

@@ -37,31 +37,55 @@ include::diagrams/runtime-ingestion.puml[]
    assigns the sheet's tasks to the topics or to `other-tasks`;
    Ingestion checks them, applies them in unit order, and writes
    `ingestion/topics.json`.
-.. *Task grouping.* If `other-tasks` has tasks, one request sends them
-   with the topics and receives new topics and the tasks that move;
-   Ingestion checks, applies, and writes `ingestion/topics.json`.
+.. *Task grouping.* One request sends the tasks of `other-tasks` and,
+   in a course with past exams, those of the topics no past exam asks
+   for, each with its topic, together with the topics. It receives
+   new topics and the tasks that move; Ingestion checks, applies, and
+   writes `ingestion/topics.json`. The step runs whenever the topics
+   or these tasks differ from the last grouping.
 .. *Topic files.* No AI call: the priority of every topic is computed,
    then `topic.md` of every topic is written, then `topics.json`. The
    course is ready from here on: the student's course list shows it
    as such, and it opens.
-.. *Solutions.* Every topic with Tier A or B tasks that has no
-   reference solutions yet goes in a request of its own, several at
+.. *Solutions.* Every topic with Tier A or B tasks whose tasks
+   differ from those its reference solutions were written for - or
+   that has none yet - goes in a request of its own, several at
    once, with its tasks as a topic-level chat gets them - figures
    included - its `topic.md`, and the course language. The reply
    holds a reference solution for every task whose blocks hold none;
    Ingestion checks the task labels, writes
-   `topics/<topic>/solutions.md` if there is any, and records the
-   topic as done in `ingestion/topics.json`.
+   `topics/<topic>/solutions.md` if there is any and removes it
+   otherwise, and records the topic's tasks in
+   `ingestion/topics.json`.
 . The command prints the token usage and the pages converted.
 
 Topic extraction applies the fallback strategies (chapter 1)
 according to the number of past exams in the course.
 
-`course add <user> <course> --from <other-user>` hands an ingested
-course to a further student: Courses copies the course of the same
-name from `<other-user>` through the Course Store - input and derived
-files, without the student state - and makes no AI
-call. A course that is not ingested is not copied.
+==== Course Update
+
+. The operator puts further PDFs into `courses/<dir>/` - a past exam,
+  an exercise sheet, or the solutions to one the course has - and
+  runs `course update <user> <course> [<dir>]`. Courses checks the
+  directory as for `course add` and refuses a course that is not
+  ingested and a PDF whose content differs from the course's copy.
+  It copies `notes.md` and every PDF the course does not have yet,
+  and prints them.
+. Courses runs Ingestion, which executes the steps above on what is
+  new:
+** A new past exam is extracted against the topics so far; its tasks
+   go to existing topics or to new ones, and existing topics may
+   change. A new exercise sheet is assigned.
+** A unit with a document not read yet whose other documents were
+   read is read again: Ingestion first removes the sources its
+   earlier reading added and the topics only they made up, then
+   extracts or assigns it like a new unit. Solutions added later join
+   their tasks without duplicating them.
+** Task grouping runs again if the topics or its tasks changed: a
+   task of a topic no past exam asks for can move to a new topic of
+   the exams.
+** Topic files recompute every priority. Topics whose tasks changed
+   get their reference solutions written again.
 
 ==== Failure and Resumption
 
