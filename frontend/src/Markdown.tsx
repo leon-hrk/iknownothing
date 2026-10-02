@@ -1,4 +1,4 @@
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -17,10 +17,16 @@ function normalizeMath(text: string): string {
     .join("");
 }
 
-export default function Markdown({ text }: { text: string }) {
+/** With `resolve`, relative image sources are turned into URLs by it. */
+export default function Markdown({ text, resolve }: { text: string; resolve?: (src: string) => string }) {
+  const urlTransform = (url: string, key: string) => {
+    const safe = defaultUrlTransform(url);
+    return resolve && key === "src" && safe && !/^([a-z][a-z0-9+.-]*:|\/)/i.test(safe) ? resolve(safe) : safe;
+  };
   return (
     <div className="markdown">
-      <ReactMarkdown remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }]]} rehypePlugins={[rehypeKatex]}>
+      <ReactMarkdown remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }]]} rehypePlugins={[rehypeKatex]}
+        urlTransform={urlTransform}>
         {normalizeMath(text)}
       </ReactMarkdown>
     </div>

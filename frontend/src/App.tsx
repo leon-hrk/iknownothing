@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
-  addUsage, chooseUser, type Course, type CourseSummary, currentUser, endChat, getChat, getCourse, listCourses,
+  addUsage, chooseUser, type Course, type CourseSummary, currentUser, endChat, fileUrl, getChat, getCourse, listCourses,
   listUsers, type Message, NO_USAGE, readFile, UNAUTHORIZED, type Usage,
 } from "./api";
 import Chat, { type OpenChat } from "./Chat";
@@ -45,6 +45,7 @@ const CHEATSHEET = "cheatsheet.md";
 
 function Document({ doc, version }: { doc: Doc; version: number }) {
   const [text, setText] = useState<string | null>(null);
+  const dir = doc.path.slice(0, doc.path.lastIndexOf("/") + 1);
   useEffect(() => {
     let current = true;
     readFile(doc.course, doc.path)
@@ -57,7 +58,7 @@ function Document({ doc, version }: { doc: Doc; version: number }) {
       <header><span className="title" title={doc.title}>{doc.title}</span></header>
       <div className="reader">
         {text === null ? <div className="pending">…</div>
-          : text.trim() ? <Markdown text={text} />
+          : text.trim() ? <Markdown text={text} resolve={(src) => fileUrl(doc.course, `${dir}${src}`)} />
           : <p className="muted">{doc.path === CHEATSHEET ? "No cheatsheet yet." : "This file is empty."}</p>}
       </div>
     </aside>
@@ -237,6 +238,40 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
     );
   }
 
+  /** The converted sources, grouped by document type. */
+  function sources(course: string, paths: string[]) {
+    const key = `${course}:sources`;
+    const types = [...new Set(paths.map((p) => p.split("/")[1]))];
+    const folder = (k: string, label: string) => (
+      <div className="row">
+        <button className="caret" onClick={() => toggle(k)}>{expanded.has(k) ? "▾" : "▸"}</button>
+        <button onClick={() => toggle(k)}>{label}</button>
+      </div>
+    );
+    return (
+      <li key={key}>
+        {folder(key, "Sources")}
+        {expanded.has(key) && (
+          <ul>
+            {types.map((type) => (
+              <li key={type}>
+                {folder(`${key}/${type}`, type)}
+                {expanded.has(`${key}/${type}`) && (
+                  <ul>
+                    {paths.filter((p) => p.split("/")[1] === type).map((p) => {
+                      const name = p.split("/").at(-1)!.replace(/\.md$/, "");
+                      return file(course, p, name, `${course} · ${type}/${name}`);
+                    })}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </li>
+    );
+  }
+
   return (
     <div className="app">
       <div className="dock">
@@ -287,6 +322,7 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
                         </li>
                       );
                     })}
+                    {detail.sources.length > 0 && sources(c.name, detail.sources)}
                     {detail.files.includes("notes.md") && file(c.name, "notes.md", "Notes", `${c.name} · Notes`)}
                     {detail.files.includes(CHEATSHEET) && file(c.name, CHEATSHEET, "Cheatsheet", `${c.name} · Cheatsheet`)}
                     <li className="usage" title="Whole course: course-level chat and all topics">

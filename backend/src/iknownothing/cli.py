@@ -10,6 +10,7 @@ from iknownothing.ai_client import AIClient, AIError
 from iknownothing.config import Settings
 from iknownothing.course_store import CourseStore, CourseStoreError
 from iknownothing.ingestion.pipeline import IngestionError, ingest
+from iknownothing.ocr_client import OCRClient, OCRError
 
 
 class CommandError(Exception):
@@ -32,9 +33,19 @@ def course_store(settings: Settings, user: str, course: str) -> CourseStore:
 
 def run_ingest(settings: Settings, store: CourseStore) -> None:
     ai = AIClient(settings, store.user, store.course)
+    ocr = OCRClient(settings, store.user, store.course)
+
+    async def run() -> None:
+        try:
+            await ingest(store, ai, ocr, report=lambda s: print(s, flush=True))
+        finally:
+            await ai.close()
+            await ocr.close()
+
     try:
-        asyncio.run(ingest(store, ai, report=lambda s: print(s, flush=True)))
+        asyncio.run(run())
     finally:
+        print(f"OCR: {ocr.pages} pages")
         for model, u in ai.usage.items():
             print(f"{model}: {u['requests']} requests, input {u['input']}, output {u['output']}, "
                   f"cache read {u['cache_read']}, cache write {u['cache_write']}")
@@ -101,5 +112,5 @@ def main() -> None:
     try:
         args.func(Settings.from_env(), args)
     except (CommandError, accounts.AccountError, courses.CourseError, CourseStoreError,
-            IngestionError, AIError) as e:
+            IngestionError, AIError, OCRError) as e:
         sys.exit(str(e))

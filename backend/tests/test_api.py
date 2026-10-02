@@ -46,10 +46,21 @@ def test_course_and_files(client):
     assert course["topics"] == [{"slug": "laplace", "name": "Laplace", "priority": "high",
                                  "files": ["topics/laplace/topic.md"], "usage": {"input": 0, "cached": 0, "output": 0, "eur": 0.0}}]
     assert course["files"] == ["notes.md"]
+    assert course["sources"] == ["sources/exams/2023.md", "sources/exercises/uebung1.md"]
     assert client.get("/api/courses/control/files/topics/laplace/topic.md").text == "# Laplace"
     assert client.get("/api/courses/control/files/sources/exams/2023.pdf").status_code == 404
     assert client.get("/api/courses/control/files/..%2F..%2Fbob/x/notes.md").status_code == 404
     assert client.get("/api/courses/nope").status_code == 404
+
+
+def test_converted_sources(client, store):  # noqa: F811
+    store.write_bytes("sources/exams/2023.pdf", b"%PDF")
+    store.write_bytes("ingestion/figure.png", b"png")
+    assert client.get("/api/courses/control/files/sources/exams/2023.md").text.startswith("<!-- page 1 -->")
+    image = client.get("/api/courses/control/files/sources/exams/2023/p2-img-0.jpeg")
+    assert image.content == b"jpeg" and image.headers["content-type"] == "image/jpeg"
+    assert client.get("/api/courses/control/files/sources/exams/2023.pdf").status_code == 404
+    assert client.get("/api/courses/control/files/ingestion/figure.png").status_code == 404
 
 
 def test_chat_streams_reply(client, store):  # noqa: F811

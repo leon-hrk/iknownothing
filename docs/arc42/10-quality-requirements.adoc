@@ -35,10 +35,11 @@ courses, one with several past exams and one with at most one.
   no topic is split or duplicated.
 
 | Q2
-| A reviewer compares the topic artifacts with the PDFs.
+| A reviewer compares the topic artifacts and their block ranges
+  with the PDFs.
 | Priority matches the past exams. The sources of every topic name
-  each of its tasks with the right pages, including the figures and
-  solutions they need, and no page without a task of the topic.
+  each of its tasks with the right blocks, including the data,
+  figures, and solutions they need, and no block of another task.
 
 | Q3
 | The student works through a topic in several sessions.

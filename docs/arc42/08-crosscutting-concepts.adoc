@@ -26,14 +26,16 @@ data/<user>/<course>/
 ├── sources/
 │   ├── exercises/          exercise sheets and solutions
 │   └── exams/              past exams and solution proposals
-│       └── <file>.pdf      original
+│       ├── <file>.pdf      original
+│       ├── <file>.md       conversion, one section per page
+│       └── <file>/         figures of the conversion
 ├── notes.md                remarks on the course
 ├── cheatsheet.md           living artifact
 ├── usage.json              tokens of the course-level chats
 ├── chat.json               open course-level chat
 ├── topics.json             topic list
 ├── ingestion/              intermediate pipeline results
-│   └── topics.json         topics as extracted
+│   └── topics.json         topics as extracted, and the files read
 └── topics/<topic>/
     ├── topic.md            topic artifact
     ├── progress.md         living artifact
@@ -56,7 +58,8 @@ The files fall into three classes:
 | The operator's course command
 
 | Derived
-| `topics.json`, `topic.md`, `ingestion/`
+| `sources/*/<file>.md`, `sources/*/<file>/`, `topics.json`,
+  `topic.md`, `ingestion/`
 | Ingestion, once
 
 | Student state
@@ -66,7 +69,8 @@ The files fall into three classes:
 |===
 
 The student edits no file. Every Markdown file is shown rendered and
-read-only in the UI; the PDFs are not shown.
+read-only in the UI, the conversions of the sources with their figures
+in place; the PDFs are not shown.
 
 Math in Markdown is written as `+\(...\)+` inline and as `+$$...$$+` or
 `+\[...\]+` on lines of its own. A single `+$+` is text, so amounts of
@@ -84,33 +88,86 @@ course:
   its body - in the current file, never the whole file.
 * An open cheatsheet view reloads when the tutor changes it.
 
+=== Source Conversion
+
+Ingestion converts every source PDF with the Mistral OCR API (see
+<<adr-mistral-ocr>>) into `sources/<type>/<file>.md`:
+
+* Every page starts with `<!-- page <n> -->`, `<n>` counting from 1.
+* A figure the OCR cuts out is a JPEG in `sources/<type>/<file>/`,
+  named `p<n>-img-<i>.jpeg`, and referenced where it stands:
+  `![p<n>-img-<i>.jpeg](<file>/p<n>-img-<i>.jpeg)`.
+* Inline math `$...$` is rewritten to `+\(...\)+` outside of code;
+  block math stays `+$$...$$+`.
+
+The Markdown file is written last, so a source with a Markdown file is
+converted completely; a resumed ingestion converts only the others.
+A conversion is never changed afterwards.
+
+A conversion consists of *blocks*: its paragraphs, split at blank
+lines outside code blocks and `+$$+` math blocks, and every page
+marker as a block of its own. Blocks are numbered from 1 per file.
+Topic extraction and the tutor split a conversion the same way.
+
 === Topic Extraction
 
 During ingestion the topics are data, not Markdown. Ingestion renders
 `topic.md` from them.
 
-* One request carries all exam and exercise PDFs as whole documents,
-  and `notes.md`. The files are ordered by unit: the files of one
-  exam or one exercise sheet carry the same number in their names
-  (`uebung01.pdf`, `loesung01.pdf`) and stand next to each other. The
-  limits of one request - 600 pages and 32 MB - bound the size of a
-  course (chapter 11).
-* The reply holds the course language and the topics. A topic has a
-  slug, a name, a priority, a description, and its sources. The slug
-  is its directory name.
-* The priority counts exams, not points: `high` if every or nearly
-  every past exam asks for the topic, `medium` if some do, `low` if
-  none does. `notes.md` can raise it. Without past exams, the
-  exercises take their place.
+* Extraction reads the course by unit (see <<adr-units>>): the files
+  of one exam or one exercise sheet carry the same number in their
+  names (`uebung01.md`, `loesung01.md`) and form one unit. A request
+  carries the unit's conversions
+  (<<_source_conversion,Source Conversion>>), each titled with its
+  path below `sources/`, every block preceded by its number (`[12]`)
+  and every figure replaced by `[figure]`, and the topics so far, each
+  with its slug, name, description, and task labels.
+* *Topic extraction* reads the past exams one after another, in the
+  order of their numbers, with `notes.md`. The reply holds the
+  language, the topics the exam creates or whose name or description
+  it changes, and the exam's sources, each with the slug of its topic.
+  A topic has a slug, a name, a description, whether the notes raise
+  it, and its sources. The slug is its directory name.
+* *Task assignment* then reads all exercise sheets at once, a few
+  requests in parallel. The reply holds only the sheet's sources,
+  each assigned to a topic with its fit - `clear` if it practises the
+  topic's skill, `loose` if it only possibly belongs to it - or to
+  `other-tasks`, a topic ingestion creates for the tasks no topic
+  relates to. `topic.md` marks a loose fit, and the tutor uses such
+  a task only where it serves the topic.
+* *Task grouping* finally reads the tasks of `other-tasks`, numbered,
+  with their blocks, and the topics. The reply holds new topics for
+  tasks that practise the same skill, and every task that leaves
+  `other-tasks` with its topic and fit. Tasks that fit nowhere stay;
+  an empty `other-tasks` is removed. The new topics have no past exam
+  and so priority `low`. Without past exams, the
+  exercise sheets go through topic extraction instead.
+* Ingestion checks every reply - valid, unique slugs, a source for
+  every new topic the notes do not raise, known topics and files, and
+  blocks within each file - and repeats the request with the errors
+  on a violation. It applies the replies in unit order and writes the
+  topics and the files read so far to `ingestion/topics.json`: after
+  every exam, once after all exercise sheets, including those of a
+  failed ingestion that succeeded, and after the grouping, which it
+  marks as done. A resumed ingestion reads only the units not read
+  and groups only if it has not grouped yet.
+* The priority counts exams, not points, and is computed after the
+  last unit: `high` if at least three quarters of the past exams have
+  a source in the topic, `medium` if one does, `low` if none does.
+  Without past exams, all units take their place. A topic the notes
+  raise is `high`. `topic.md` names the number of past exams.
 * A source is one task: its label (`Aufgabe 3c-e`), its gradability
-  tier, and its page ranges, each in one file. The page ranges cover
-  the task, the figures and tables it refers to, and, for an
-  exercise, its solution in the solution file.
-* Ingestion checks the reply - valid, unique slugs, known files, and
-  pages within each file - and repeats the request with the errors
-  on a violation.
-* For a topic-level chat, the Course Store cuts the source pages of
-  the topic out of the PDFs, one document per file, each page once.
+  tier, and its block ranges, each in one file (see
+  <<adr-task-blocks>>). The ranges cover the task, for a subtask the
+  task's introduction, the figures, tables, and data it refers to,
+  and its solution.
+* `topics.json` stores every source with an ID, `<slug>/<n>`, and
+  every block range with the pages it spans, read from the page
+  markers; `topic.md` names these pages.
+* For a topic-level chat, the Tutor loads every source of the topic
+  in a `<source>` element with its ID, label, and tier, and in it
+  every block range in a `<passage>` element. Figures in the blocks
+  go as images where they stand.
 
 === Security
 
@@ -153,17 +210,18 @@ authentication: whoever reaches the application can choose any user
 
 ==== Secrets
 
-The Anthropic API key stands in plain text in `.env` (see
-<<adr-operator-key>>). It is protected by:
+The Anthropic and Mistral API keys stand in plain text in `.env` (see
+<<adr-operator-key>>). They are protected by:
 
 * `.env` is never committed; the repository holds `.env.example` with
   placeholders.
 * `.env` is readable only by the operator (`chmod 600`).
-* The API key never leaves the AI Client: it appears in no log, error
-  message, or API response.
-* The operator creates the key in an Anthropic workspace of its own
-  with a spend limit, so a leaked key has a bounded cost and can be
-  revoked on its own.
+* The Anthropic key never leaves the AI Client, the Mistral key never
+  the OCR Client: they appear in no log, error message, or API
+  response.
+* The operator creates each key in a workspace of its own with a
+  spend limit, so a leaked key has a bounded cost and can be revoked
+  on its own.
 
 === AI Requests
 
@@ -176,6 +234,8 @@ Every request type runs on one of two model tiers (see
 
 | Finalization | small
 | Topic extraction | large
+| Task assignment (exercise sheets) | small
+| Task grouping | large
 | Tutoring (topic-level chat), including grading | large
 | Planning (course-level chat) | large
 |===
@@ -184,12 +244,12 @@ Topic extraction asks for its reply in a JSON schema. A request the
 model declines is rerun server-side on a fallback model.
 
 Chat requests put the context of the chat first - for a topic-level
-chat, its source pages before everything else - and mark it for
+chat, its tasks before everything else - and mark it for
 prompt caching, since every message sends it again.
 
 The AI Client logs model and token usage of every request with user,
-course, and request type. The cost of an ingestion is read from this
-log.
+course, and request type, the OCR Client the pages of every
+conversion. The cost of an ingestion is read from this log.
 
 Every chat request and finalization adds its input tokens, cached ones
 included, its cached input tokens, its output tokens, and its
@@ -205,7 +265,7 @@ open session's total is kept in its `chat.json`.
 The backend is asynchronous throughout. Every call to the Anthropic
 API and every other wait on I/O is non-blocking, so one backend
 process holds many streaming chats and finalizations at once.
-Blocking work, such as cutting pages out of a PDF, runs off the
+Blocking work, such as reading and writing files, runs off the
 event loop.
 
 === Chat Tools

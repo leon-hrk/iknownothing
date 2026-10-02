@@ -18,12 +18,28 @@
   proxy that authenticates every request (chapter 7). Login
   (chapter 1, out of scope) removes the risk.
 
-| Course size bounded by one request
-| Topic extraction sends all material in one request, limited to 600
-  pages and 32 MB. A larger course fails ingestion.
-| Past exams and exercises of one course usually stay far below the
-  limits. Uploading the PDFs through the Files API, or splitting
-  extraction into several requests, removes the risk.
+| Topics shaped by the order of past exams
+| Topic extraction reads the past exams one after another
+  (<<adr-units>>). The first exam sets the granularity of the topics;
+  a later one can add and describe topics but not merge or split
+  them. Exercise content no exam asks for is grouped into topics only
+  at the end, from the tasks no topic took.
+| Topics are defined by skill, not by exam. Checked by hand on the
+  reference courses (Q1). Merge and split operations in the reply
+  remove the risk.
+
+| OCR errors in the converted sources
+| The conversion (<<adr-mistral-ocr>>) is not reviewed. A misread
+  formula or a figure the OCR does not cut out is wrong or missing in
+  the Markdown.
+| The student sees the converted sources in the UI. Checked by hand
+  against the PDFs on the reference courses.
+
+| Task cut too tight
+| A block range misses data, a figure, or part of the solution the
+  task needs (<<adr-task-blocks>>). The tutor then works without it.
+| The prompt asks for the introduction and referenced data of every
+  subtask. Checked by hand on the reference courses (Q2).
 
 | Missing lecture content
 | The lecture is not ingested (<<adr-no-lecture>>). The tutor teaches

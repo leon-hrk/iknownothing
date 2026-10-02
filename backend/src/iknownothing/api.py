@@ -14,7 +14,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, HTTPException, Response
-from fastapi.responses import PlainTextResponse, StreamingResponse
+from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -22,7 +22,7 @@ from iknownothing import accounts, courses
 from iknownothing.ai_client import AIClient, AIError
 from iknownothing.config import Settings
 from iknownothing.course_store import CourseStore, CourseStoreError
-from iknownothing.ingestion.pipeline import RESULT
+from iknownothing.ingestion.pipeline import RESULT, unit
 from iknownothing.mock.ai_client import SAMPLE_DATA, MockAIClient, sample_chat
 from iknownothing.tutor.chat import TutorError, reply, topic_entry
 from iknownothing.tutor.finalization import finalize
@@ -104,7 +104,8 @@ def list_courses(user: str = Depends(current_user)) -> list[dict]:
 
 @app.get("/api/courses/{course}")
 def get_course(store: CourseStore = Depends(course_store)) -> dict:
-    """The course with its topics in priority order, each with the Markdown files of its directory.
+    """The course with its topics in priority order, each with the Markdown files of its directory, and the
+    Markdown of its converted sources.
 
     `usage` holds the tokens spent on the chats of a topic, finalizations included, and on the
     course-level chat.
@@ -115,20 +116,31 @@ def get_course(store: CourseStore = Depends(course_store)) -> dict:
             files = sorted(p.name for p in store.path(t["dir"]).glob("*.md"))
             topics.append({"slug": t["slug"], "name": t["name"], "priority": t["priority"],
                            "files": [f"{t['dir']}/{f}" for f in files], "usage": courses.usage(store, t["dir"])})
+    sources = sorted((p.relative_to(store.root).as_posix() for p in store.path("sources").glob("*/*.md")),
+                     key=lambda f: (f.split("/")[1], unit(f), f))
     return {"name": store.course, "status": courses.status(store), "topics": topics,
-            "files": [f for f in ("notes.md", "cheatsheet.md") if store.exists(f)], "usage": courses.usage(store)}
+            "files": [f for f in ("notes.md", "cheatsheet.md") if store.exists(f)], "sources": sources,
+            "usage": courses.usage(store)}
 
 
-@app.get("/api/courses/{course}/files/{rel:path}", response_class=PlainTextResponse)
-def read_file(rel: str, store: CourseStore = Depends(course_store)) -> str:
-    """A Markdown file of the course; uploaded PDFs and pipeline results are not served."""
+IMAGES = {".jpeg": "image/jpeg", ".jpg": "image/jpeg", ".png": "image/png"}
+
+
+@app.get("/api/courses/{course}/files/{rel:path}", response_model=None)
+def read_file(rel: str, store: CourseStore = Depends(course_store)) -> PlainTextResponse | FileResponse:
+    """A Markdown file of the course, or an image of a converted source; uploaded PDFs and pipeline results are
+    not served."""
     try:
         path = store.path(rel)
     except CourseStoreError:
         raise HTTPException(404, "no such file")
-    if path.suffix != ".md" or not path.is_file():
+    if not path.is_file():
         raise HTTPException(404, "no such file")
-    return store.read_text(rel)
+    if path.suffix == ".md":
+        return PlainTextResponse(store.read_text(rel))
+    if path.suffix in IMAGES and rel.startswith("sources/"):
+        return FileResponse(path, media_type=IMAGES[path.suffix])
+    raise HTTPException(404, "no such file")
 
 
 def _directory(store: CourseStore, topic: str | None) -> str:

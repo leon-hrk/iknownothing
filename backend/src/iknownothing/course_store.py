@@ -1,7 +1,6 @@
 """The only access path to data/<user>/<course>/."""
 
 import asyncio
-import io
 import json
 import os
 import re
@@ -11,8 +10,6 @@ from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
-
-from pypdf import PdfReader, PdfWriter
 
 DOC_TYPES = ("exams", "exercises")
 
@@ -91,19 +88,6 @@ class CourseStore:
         if not d.is_dir():
             return []
         return [f"sources/{doc_type}/{p.name}" for p in sorted(d.glob("*.pdf"))]
-
-    def page_count(self, rel: str) -> int:
-        return len(PdfReader(self.path(rel)).pages)
-
-    def pages_pdf(self, rel: str, pages: list[int]) -> bytes:
-        """A PDF of the given 1-based pages of a source, each once, in page order."""
-        reader = PdfReader(self.path(rel))
-        writer = PdfWriter()
-        for n in sorted(set(pages)):
-            writer.add_page(reader.pages[n - 1])
-        buf = io.BytesIO()
-        writer.write(buf)
-        return buf.getvalue()
 
     def files(self) -> list[str]:
         """All files of the course, relative to its directory."""

@@ -25,19 +25,24 @@ include::diagrams/business-context.puml[]
   for reading
 
 | Operator
-| Deployment, instance configuration including the Anthropic API
-  key, users, course PDFs and `notes.md` for each student
+| Deployment, instance configuration including the Anthropic and
+  Mistral API keys, users, course PDFs and `notes.md` for each student
 | A running instance
 
 | Anthropic API
-| Topics with their source pages, tutor replies and grading, updated
-  progress
-| PDF documents, topics, artifacts, and prompts -
+| Topics with the block ranges of their tasks, tutor replies and
+  grading, updated progress
+| Converted course material with its figures, topics, artifacts, and
+  prompts -
   authenticated with the instance's API key
+
+| Mistral OCR API
+| The Markdown of each course PDF, with its figures as images
+| Course PDFs - authenticated with the instance's Mistral API key
 |===
 
 The student's course material leaves the instance only towards the
-Anthropic API.
+Anthropic API and the Mistral OCR API.
 
 === Technical Context
 
@@ -59,6 +64,12 @@ Anthropic API.
 
 | Anthropic API
 | HTTPS
-| Outbound only. Requests carry PDFs as document input. Every request
+| Outbound only. Requests carry converted course material as text and
+  its figures as images. Every request
   carries the instance's API key.
+
+| Mistral OCR API
+| HTTPS
+| Outbound only, during ingestion. A request carries one PDF and the
+  instance's Mistral API key.
 |===

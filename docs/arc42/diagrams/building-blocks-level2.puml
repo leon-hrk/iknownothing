@@ -9,18 +9,22 @@ rectangle "Backend" {
   component "Tutor" as tutor
   component "Course Store" as store
   component "AI Client" as aiclient
+  component "OCR Client" as ocrclient
 }
 
 folder "Filesystem" as fs
 cloud "Anthropic API" as ai
+cloud "Mistral OCR API" as ocr
 
 courses --> store
 courses --> ingestion : ingest
 ingestion --> store
 ingestion --> aiclient
+ingestion --> ocrclient
 tutor --> store
 tutor --> aiclient
 aiclient --> ai
+ocrclient --> ocr
 
 accounts --> fs
 store --> fs

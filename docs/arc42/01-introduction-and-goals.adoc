@@ -22,7 +22,7 @@ worked out in one is gone in the next.
 The agent ingests all course materials *once* and organizes them into
 topics: what the exams ask, how important each topic is, and where in
 the material its tasks stand. A tutoring session on a topic works on
-exactly these pages of the original material.
+exactly these tasks, cut out of the material converted to Markdown.
 
 What the student learns is kept in two living artifacts: a
 *cheatsheet* of key terms, formulas, and strategies, which the tutor
@@ -37,8 +37,10 @@ instead of from zero.
   between users.
 * The operator creates the users; a user picks themselves from the
   list of users in the UI. There is no login and no self-registration.
-* The operator provides one Anthropic API key for the instance. All AI
-  calls of all users, including ingestion, run on that key.
+* The operator provides one Anthropic API key and one Mistral API key
+  for the instance. All AI calls of all users, including ingestion,
+  run on the Anthropic key; the conversion of the PDFs runs on the
+  Mistral key.
 * The operator provides the course material: they add a course for a
   student from its PDFs and `notes.md` and ingest it. An ingested
   course can be copied to further students without being ingested
@@ -57,23 +59,31 @@ The top-level unit, owned by a user. A course contains:
 [[ingestion-pipeline]]
 ==== Ingestion Pipeline
 
-Runs per course, as one request over all of its PDFs together with
-`notes.md`. Ingestion reads past exams and exercises only; lecture
-material is not part of a course (see <<adr-no-lecture>>). Nothing is
-transcribed: ingestion finds the topics and records where in the PDFs
-the tasks of each topic stand (see <<adr-source-pages>>).
+Runs per course: every PDF is converted to Markdown, then the past
+exams are read one after another and define the topics, and the
+exercise sheets are assigned to them in parallel. Ingestion reads
+past exams and exercises only; lecture material is not part of a
+course (see <<adr-no-lecture>>). The model transcribes nothing:
+ingestion finds the topics and records where in the conversions the
+tasks of each topic stand (see <<adr-task-blocks>>).
 
+. *Conversion*: every PDF becomes Markdown by OCR, with the figures
+  as images next to it (see <<adr-mistral-ocr>>).
 . *Topics*: the past exams define the topics - what the exam asks
-  defines what a topic _is_. Exercises add topics the exams do not
-  cover. Through `notes.md`, a topic no past exam covers ("topic Y is
-  new this year") is still created. Every topic gets:
-** A name and a description of what it covers and its exam relevance
-** A *priority*: how many of the past exams ask for it
+  defines what a topic _is_. Exercise tasks on content the exams do
+  not cover form topics of low priority, and what fits nowhere
+  collects in `other-tasks`; without past exams, the exercises define
+  the topics. Through `notes.md`, a
+  topic no past exam covers ("topic Y is new this year") is still
+  created. Every topic gets:
+** A name and a description of what it covers
+** A *priority*: how many of the past exams ask for it, computed from
+   its sources
 ** Its *sources*: every task on the topic in the exams and exercises,
-   each with its file, its pages, its task label, and its
-   <<gradability,gradability tier>>. The pages include those with
-   figures or tables the task refers to, and for an exercise the
-   pages of its solution.
+   each with an ID, its task label, its
+   <<gradability,gradability tier>>, and the block ranges of the
+   conversions it needs: the task, the figures, tables, and data it
+   refers to, and its solution.
 +
 The course language is detected here.
 . *Topic files*: every topic gets a *topic directory* with its
@@ -82,16 +92,16 @@ The course language is detected here.
 . *Topic list*: `topics.json` - the topics in priority order, each
   with its priority, its topic directory, and its sources. The UI
   orders the topic tree by it; the course-level chat takes the
-  priorities and tasks from it; a topic-level chat takes the source pages from
-  it.
+  priorities and tasks from it; a topic-level chat takes the block
+  ranges of its tasks from it.
 
 Source priority for what a topic is: *past exams > exercises*. For
 solution style and notation it *inverts*: exercise solutions, then
 past exam solutions, outrank the exam question itself. The exam says
 what is asked; the solutions say how it is to be written down.
 
-A topic-level chat reads the topic's source pages - the original PDF
-pages, figures included - and nothing else of the PDFs.
+A topic-level chat reads the topic's tasks - their blocks, with the
+figures in them as images - and nothing else of the material.
 
 ==== Course Lifecycle
 
@@ -157,7 +167,7 @@ Sessions come in two scopes.
 entry point: the student opens a course and asks "which topics do I
 still need to learn?". Context is `notes.md`, the progress of every
 topic, the topic priorities and tasks from `topics.json`, and
-`cheatsheet.md` - never a full topic artifact or source pages. It
+`cheatsheet.md` - never a full topic artifact or the tasks. It
 answers where the student stands and what to work on next; to work on a topic, the student opens it.
 
 *Topic-level chat* - the actual tutoring, opened by clicking a topic.
@@ -170,7 +180,7 @@ chooses *End session* and confirms; its chat is then cleared.
 
 * Context loaded into a topic-level session:
 ** The topic's artifact (`topics/<topic>/topic.md`)
-** The topic's source pages, as PDF
+** The topic's tasks, as Markdown with their figures
 ** The course cheatsheet (`cheatsheet.md`)
 ** The topic's progress (`topics/<topic>/progress.md`)
 ** The course notes (`notes.md`)
@@ -263,9 +273,10 @@ interface - they open a course and ask a question.
   an expanded topic for all its chats and finalizations and in an
   expanded course for the whole course, its course-level chats and
   all its topics together.
-* Clicking a Markdown file - the files of a topic, *Notes*, and
-  *Cheatsheet* - shows it rendered and read-only in the *document
-  column* beside the chat, each taking half the width. A closed
+* Clicking a Markdown file - the files of a topic, *Notes*,
+  *Cheatsheet*, and the converted exams and exercises under
+  *Sources* - shows it rendered and read-only, figures in place, in
+  the *document column* beside the chat, each taking half the width. A closed
   document column opens for it.
 * The PDFs of a course are not shown.
 * A narrow column left of the course tree holds a button that hides
@@ -309,8 +320,6 @@ Direction, not a plan. Nothing here is designed.
 * *Upload in the UI.* The student creates a course and uploads its
   PDFs and `notes.md` in the browser, and ingestion runs in the
   background while the UI shows its progress.
-* *Figure extraction.* Figures and diagrams extracted from the PDFs
-  as image files and shown in the UI.
 * *EU-hosted AI providers*, for users who cannot or will not send
   course material to a US provider.
 * *Sharing course material between users.*

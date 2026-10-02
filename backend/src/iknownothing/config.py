@@ -11,6 +11,7 @@ class Settings:
     frontend_dir: Path | None = None
     courses_dir: Path = Path("courses")
     mock_user: bool = False
+    mistral_api_key: str = ""
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -21,4 +22,5 @@ class Settings:
             frontend_dir=Path(os.environ["IKN_FRONTEND_DIR"]) if os.environ.get("IKN_FRONTEND_DIR") else None,
             courses_dir=Path(os.environ.get("IKN_COURSES_DIR", "courses")),
             mock_user=os.environ.get("IKN_MOCK_USER") == "1",
+            mistral_api_key=os.environ.get("MISTRAL_API_KEY", ""),
         )

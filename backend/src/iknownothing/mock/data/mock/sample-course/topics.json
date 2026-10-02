@@ -1,23 +1,5 @@
 [
-  {
-    "slug": "first-topic",
-    "name": "First topic",
-    "priority": "high",
-    "dir": "topics/first-topic",
-    "sources": [{"task": "Sample exam, task 1", "tier": "A", "pages": [{"file": "exams/sample.pdf", "pages": "1"}]}]
-  },
-  {
-    "slug": "second-topic",
-    "name": "Second topic, with a name long enough to wrap in the course tree",
-    "priority": "medium",
-    "dir": "topics/second-topic",
-    "sources": [{"task": "Sample exam, task 2", "tier": "B", "pages": [{"file": "exams/sample.pdf", "pages": "1"}]}]
-  },
-  {
-    "slug": "third-topic",
-    "name": "Third topic",
-    "priority": "low",
-    "dir": "topics/third-topic",
-    "sources": [{"task": "Sample exam, task 3", "tier": "B", "pages": [{"file": "exams/sample.pdf", "pages": "1"}]}]
-  }
+  {"slug": "first-topic", "name": "First topic", "priority": "high", "dir": "topics/first-topic", "sources": [{"id": "first-topic/1", "task": "Sample exam, Task 1", "tier": "A", "fit": "clear", "blocks": [{"file": "exams/sample.md", "blocks": "3-4", "pages": "1"}, {"file": "exams/sample.md", "blocks": "14", "pages": "2"}]}]},
+  {"slug": "second-topic", "name": "Second topic, with a name long enough to wrap in the course tree", "priority": "medium", "dir": "topics/second-topic", "sources": [{"id": "second-topic/1", "task": "Sample exam, Task 2", "tier": "B", "fit": "clear", "blocks": [{"file": "exams/sample.md", "blocks": "5-9", "pages": "1"}, {"file": "exams/sample.md", "blocks": "15-16", "pages": "2"}]}]},
+  {"slug": "third-topic", "name": "Third topic", "priority": "low", "dir": "topics/third-topic", "sources": [{"id": "third-topic/1", "task": "Sample exam, Task 3", "tier": "B", "fit": "clear", "blocks": [{"file": "exams/sample.md", "blocks": "10-11", "pages": "1"}, {"file": "exams/sample.md", "blocks": "17", "pages": "2"}]}]}
 ]

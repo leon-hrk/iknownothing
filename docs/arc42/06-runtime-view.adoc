@@ -22,14 +22,27 @@ include::diagrams/runtime-ingestion.puml[]
 . Courses runs Ingestion in the command's process. Ingestion executes
   the steps below in order, prints each as it starts, and writes its
   results through the Course Store.
-.. *Topic extraction.* One request sends all exam and exercise PDFs
-   as documents together with `notes.md`
-   (<<_topic_extraction,chapter 8>>) and receives the course language
-   and the topics with their sources, which Ingestion checks and
-   writes to `ingestion/topics.json`.
-.. *Topic files.* No AI call: `topic.md` of every topic is written
-   from the topics, then `topics.json`.
-. The command prints the token usage. The course is ready: the
+.. *Conversion.* Every exam and exercise PDF without a Markdown file
+   goes to the OCR Client, a few at once. Ingestion writes the figures
+   of each page to `sources/<type>/<file>/`, then
+   `sources/<type>/<file>.md` (<<_source_conversion,chapter 8>>).
+.. *Topic extraction.* For every past exam not read yet, one after
+   another, one request sends its conversions without their figures,
+   `notes.md`, and the topics so far (<<_topic_extraction,chapter 8>>).
+   It receives the new and changed topics and the exam's sources,
+   which Ingestion checks, applies, and writes to
+   `ingestion/topics.json`. Each exam is printed as it starts.
+.. *Task assignment.* Every exercise sheet not read yet goes in a
+   request of its own, several at once, with the topics. Each reply
+   assigns the sheet's tasks to the topics or to `other-tasks`;
+   Ingestion checks them, applies them in unit order, and writes
+   `ingestion/topics.json`.
+.. *Task grouping.* If `other-tasks` has tasks, one request sends them
+   with the topics and receives new topics and the tasks that move;
+   Ingestion checks, applies, and writes `ingestion/topics.json`.
+.. *Topic files.* No AI call: the priority of every topic is computed,
+   then `topic.md` of every topic is written, then `topics.json`.
+. The command prints the token usage and the pages converted. The course is ready: the
   student's course list shows it as such, and it opens.
 
 Topic extraction applies the fallback strategies (chapter 1)
@@ -68,8 +81,8 @@ reload. Opening a chat loads its stored transcript.
 . The frontend posts the chat's scope (the course or one topic), its
   transcript so far, and the student's message.
 . Tutor assembles the context for the scope through the Course Store
-  (chapter 1, Tutoring Sessions) - for a topic-level chat, its source
-  pages first, cut out of the PDFs - and sends it with the transcript and
+  (chapter 1, Tutoring Sessions) - for a topic-level chat, its tasks
+  first (<<_topic_extraction,chapter 8>>) - and sends it with the transcript and
   the <<_chat_tools,chat tools>> through the AI Client.
 . The reply streams to the frontend as Server-Sent Events: the
   summary of the model's thinking, the text, and the start of each

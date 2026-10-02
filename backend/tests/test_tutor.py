@@ -1,10 +1,8 @@
 import asyncio
 import base64
-import io
 from types import SimpleNamespace
 
 import pytest
-from pypdf import PdfReader, PdfWriter
 
 from iknownothing.course_store import CourseStore
 from iknownothing.tutor.chat import TutorError, course_context, reply, topic_context
@@ -12,28 +10,24 @@ from iknownothing.tutor.cheatsheet import CheatsheetError, parse, set_entry
 from iknownothing.tutor.finalization import finalize, render_transcript
 
 
-def pdf(pages: int) -> bytes:
-    w = PdfWriter()
-    for i in range(pages):
-        w.add_blank_page(width=100 + i, height=100)
-    buf = io.BytesIO()
-    w.write(buf)
-    return buf.getvalue()
-
-
 @pytest.fixture
 def store(tmp_path):
     s = CourseStore(tmp_path, "alice", "control")
     s.write_text("notes.md", "notes")
-    s.write_bytes("sources/exams/2023.pdf", pdf(6))
-    s.write_bytes("sources/exercises/uebung1.pdf", pdf(3))
+    s.write_text("sources/exams/2023.md", (
+        "<!-- page 1 -->\n\n# Aufgabe 1\n\nIntro\n\n<!-- page 2 -->\n\n# Aufgabe 2\n\nGegeben:\n\n"
+        "![p2-img-0.jpeg](2023/p2-img-0.jpeg)\n\na) Teil a\n\nb) Teil b\n"))
+    s.write_bytes("sources/exams/2023/p2-img-0.jpeg", b"jpeg")
+    s.write_text("sources/exercises/uebung1.md", "<!-- page 1 -->\n\nÜbung 1\n\nLösung\n")
     s.write_text("topics/laplace/topic.md", "# Laplace")
     s.write_json("topics.json", [{
         "slug": "laplace", "name": "Laplace", "priority": "high", "dir": "topics/laplace",
         "sources": [
-            {"task": "Übung 1, Aufgabe 1", "tier": "A", "pages": [{"file": "exercises/uebung1.pdf", "pages": "2"}]},
-            {"task": "Klausur 2023, Aufgabe 2", "tier": "A", "pages": [{"file": "exams/2023.pdf", "pages": "4-5"}]},
-            {"task": "Klausur 2023, Aufgabe 3", "tier": "B", "pages": [{"file": "exams/2023.pdf", "pages": "1-2"}]},
+            {"id": "laplace/1", "task": "Klausur 2023, Aufgabe 2b", "tier": "A", "fit": "clear", "blocks": [
+                {"file": "exams/2023.md", "blocks": "5-7", "pages": "2"},
+                {"file": "exams/2023.md", "blocks": "9", "pages": "2"}]},
+            {"id": "laplace/2", "task": "Übung 1, Aufgabe 1", "tier": "B", "fit": "loose", "blocks": [
+                {"file": "exercises/uebung1.md", "blocks": "2-3", "pages": "1"}]},
         ],
     }])
     return s
@@ -58,10 +52,16 @@ def test_cheatsheet_entries():
 
 def test_context(store):
     ctx = asyncio.run(topic_context(store, "laplace", "German"))
-    docs = [b for b in ctx if b["type"] == "document"]
-    assert [d["title"] for d in docs] == ["exams/2023.pdf, pages 1-2, 4-5", "exercises/uebung1.pdf, pages 2"]
-    assert "cache_control" in docs[-1] and "cache_control" not in docs[0]
-    assert len(PdfReader(io.BytesIO(base64.b64decode(docs[0]["source"]["data"]))).pages) == 4
+    assert [b["type"] for b in ctx] == ["text", "image", "text", "text"]
+    assert ctx[0]["text"] == (
+        '<source id="laplace/1" task="Klausur 2023, Aufgabe 2b" tier="A" fit="clear">\n'
+        '<passage file="exams/2023.md" blocks="5-7">\n# Aufgabe 2\n\nGegeben:\n\n')
+    assert base64.b64decode(ctx[1]["source"]["data"]) == b"jpeg"
+    assert ctx[2]["text"] == (
+        '\n\n</passage>\n<passage file="exams/2023.md" blocks="9">\nb) Teil b\n\n</passage>\n</source>\n\n'
+        '<source id="laplace/2" task="Übung 1, Aufgabe 1" tier="B" fit="loose">\n'
+        '<passage file="exercises/uebung1.md" blocks="2-3">\nÜbung 1\n\nLösung\n\n</passage>\n</source>\n\n')
+    assert "cache_control" in ctx[2] and "cache_control" not in ctx[0]
     assert "<cheatsheet>\n(empty)\n</cheatsheet>" in ctx[-1]["text"]
 
 
@@ -116,7 +116,7 @@ def test_reply_runs_tools(store):
     results = transcript[2]["content"]
     assert [r["tool_use_id"] for r in results] == ["t1", "t2"] and "Do not grade" in results[1]["content"]
     first = ai.requests[1][0]["content"]
-    assert first[0]["type"] == "document" and first[-1] == {"type": "text", "text": "quiz me"}
+    assert first[0]["text"].startswith("<source") and first[-1] == {"type": "text", "text": "quiz me"}
 
 
 def test_reply_failure_keeps_transcript(store):
@@ -148,7 +148,7 @@ def test_course_chat(store):
     ctx = course_context(store, "German")
     assert len(ctx) == 1 and "cache_control" in ctx[0]
     assert '<topic name="Laplace" priority="high">' in ctx[0]["text"]
-    assert "- Klausur 2023, Aufgabe 3 (Tier B)" in ctx[0]["text"] and "can transform" in ctx[0]["text"]
+    assert "- Übung 1, Aufgabe 1 (Tier B)" in ctx[0]["text"] and "can transform" in ctx[0]["text"]
 
     ai = FakeAI()
     transcript = [{"role": "user", "content": "what next?"}]

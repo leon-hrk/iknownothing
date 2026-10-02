@@ -9,7 +9,7 @@ scope: [docs/arc42](docs/arc42/README.md). Development:
 Needs Docker with Compose, nothing else.
 
 ```sh
-cp .env.example .env    # fill in the API key
+cp .env.example .env    # fill in the API keys
 chmod 600 .env
 mkdir -p data courses
 docker compose up -d --build

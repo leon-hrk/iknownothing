@@ -2,14 +2,14 @@ import pytest
 
 from iknownothing import courses
 from iknownothing.course_store import CourseStore
-from test_tutor import pdf, store  # noqa: F401
+from test_tutor import store  # noqa: F401
 
 
 def material(tmp_path):
     src = tmp_path / "in" / "control"
     (src / "exams").mkdir(parents=True)
     (src / "notes.md").write_text("notes")
-    (src / "exams" / "2023.pdf").write_bytes(pdf(2))
+    (src / "exams" / "2023.pdf").write_bytes(b"%PDF")
     return src
 
 

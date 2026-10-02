@@ -2,14 +2,14 @@
 
 import asyncio
 import base64
-from collections import defaultdict
 from collections.abc import AsyncIterator
+from pathlib import PurePosixPath
 from typing import Any
 
 from iknownothing.ai_client import AIClient
 from iknownothing.course_store import CourseStore
-from iknownothing.ingestion.pipeline import by_unit
-from iknownothing.ingestion.topics import page_numbers
+from iknownothing.ingestion.conversion import FIGURE, blocks
+from iknownothing.ingestion.topics import range_numbers
 from iknownothing.tutor.cheatsheet import CheatsheetError, set_entry
 
 MAX_TOOL_ROUNDS = 8
@@ -77,38 +77,43 @@ def topic_entry(store: CourseStore, slug: str) -> dict:
     raise TutorError(f"no such topic: {slug!r}")
 
 
-def _ranges(pages: list[int]) -> str:
-    out: list[str] = []
-    start = prev = pages[0]
-    for n in [*pages[1:], None]:
-        if n is not None and n == prev + 1:
-            prev = n
-            continue
-        out.append(str(start) if start == prev else f"{start}-{prev}")
-        if n is not None:
-            start = prev = n
-    return ", ".join(out)
+def _image(rel: str, data: bytes) -> dict:
+    media_type = "image/png" if rel.endswith(".png") else "image/jpeg"
+    return {"type": "image",
+            "source": {"type": "base64", "media_type": media_type, "data": base64.standard_b64encode(data).decode("ascii")}}
 
 
-async def source_documents(store: CourseStore, topic: dict) -> list[dict]:
-    """The topic's source pages, one document per file, each page once."""
-    pages: defaultdict[str, set[int]] = defaultdict(set)
-    for source in topic["sources"]:
-        for r in source["pages"]:
-            pages[r["file"]].update(page_numbers(r["pages"]))
-    files = [*by_unit([f for f in pages if f.startswith("exams/")]),
-             *by_unit([f for f in pages if not f.startswith("exams/")])]
-    documents = []
-    for f in files:
-        numbers = sorted(pages[f])
-        data = await asyncio.to_thread(store.pages_pdf, f"sources/{f}", numbers)
-        documents.append({
-            "type": "document",
-            "source": {"type": "base64", "media_type": "application/pdf",
-                       "data": base64.standard_b64encode(data).decode("ascii")},
-            "title": f"{f}, pages {_ranges(numbers)}",
-        })
-    return documents
+async def source_content(store: CourseStore, topic: dict) -> list[dict]:
+    """Every source of the topic with its blocks as text and the figures in them as images, where they stand."""
+    converted: dict[str, list[str]] = {}
+    content: list[dict] = []
+    text: list[str] = []
+
+    def flush() -> None:
+        if text:
+            content.append({"type": "text", "text": "".join(text)})
+            text.clear()
+
+    for s in topic["sources"]:
+        text.append(f'<source id="{s["id"]}" task="{s["task"]}" tier="{s["tier"]}" fit="{s["fit"]}">\n')
+        for r in s["blocks"]:
+            rel = f"sources/{r['file']}"
+            if rel not in converted:
+                converted[rel] = blocks(await asyncio.to_thread(store.read_text, rel))
+            text.append(f'<passage file="{r["file"]}" blocks="{r["blocks"]}">\n')
+            for n in range_numbers(r["blocks"]):
+                block, pos = converted[rel][n - 1], 0
+                for m in FIGURE.finditer(block):
+                    text.append(block[pos:m.start()])
+                    flush()
+                    figure = str(PurePosixPath(rel).parent / m[1])
+                    content.append(_image(figure, await asyncio.to_thread(store.read_bytes, figure)))
+                    pos = m.end()
+                text.append(f"{block[pos:]}\n\n")
+            text.append("</passage>\n")
+        text.append("</source>\n\n")
+    flush()
+    return content
 
 
 def _optional(store: CourseStore, rel: str, missing: str = "(empty)") -> str:
@@ -116,10 +121,11 @@ def _optional(store: CourseStore, rel: str, missing: str = "(empty)") -> str:
 
 
 async def topic_context(store: CourseStore, slug: str, language: str) -> list[dict]:
-    """The context of a topic-level chat: source pages first, marked for caching, then the course files."""
+    """The context of a topic-level chat: its sources first, marked for caching, then the course files."""
     topic = topic_entry(store, slug)
-    documents = await source_documents(store, topic)
-    documents[-1]["cache_control"] = {"type": "ephemeral"}
+    sources = await source_content(store, topic)
+    if sources:
+        sources[-1]["cache_control"] = {"type": "ephemeral"}
     text = (
         f"<language>{language}</language>\n\n"
         f"<topic>\n{store.read_text(f'{topic['dir']}/topic.md')}\n</topic>\n\n"
@@ -127,7 +133,7 @@ async def topic_context(store: CourseStore, slug: str, language: str) -> list[di
         f"<cheatsheet>\n{_optional(store, 'cheatsheet.md')}\n</cheatsheet>\n\n"
         f"<progress>\n{_optional(store, f'{topic['dir']}/progress.md')}\n</progress>"
     )
-    return [*documents, {"type": "text", "text": text}]
+    return [*sources, {"type": "text", "text": text}]
 
 
 def course_context(store: CourseStore, language: str) -> list[dict]:

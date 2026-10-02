@@ -10,7 +10,8 @@ export const addUsage = (a: Usage, b: Usage): Usage =>
 
 export type Topic = { slug: string; name: string; priority: string; files: string[]; usage: Usage };
 
-export type Course = { name: string; status: string; topics: Topic[]; files: string[]; usage: Usage };
+/** `sources`: the Markdown of the converted source PDFs, `sources/<type>/<file>.md`. */
+export type Course = { name: string; status: string; topics: Topic[]; files: string[]; sources: string[]; usage: Usage };
 
 /** A content block as the Messages API has it: text, tool use, tool result, thinking. */
 export type Block = { type: string; text?: string; name?: string; input?: Record<string, string>; [key: string]: unknown };
@@ -65,8 +66,10 @@ export const listCourses = () => json<CourseSummary[]>("/api/courses");
 
 export const getCourse = (course: string) => json<Course>(base(course));
 
+export const fileUrl = (course: string, path: string) => `${base(course)}/files/${path}`;
+
 export async function readFile(course: string, path: string): Promise<string> {
-  return (await request(`${base(course)}/files/${path}`)).text();
+  return (await request(fileUrl(course, path))).text();
 }
 
 /** Streams the reply to a transcript that ends with the student's message. */

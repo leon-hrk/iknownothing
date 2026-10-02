@@ -32,7 +32,7 @@ publishes one port, bound to `localhost`, and speaks plain HTTP.
 |===
 
 Configuration is passed as environment variables from a `.env` file
-next to the compose file: the Anthropic API key, the model of each
+next to the compose file: the Anthropic and Mistral API keys, the model of each
 <<_ai_requests,model tier>>, the port, the user ID that owns
 `data/`, and, for testing the UI, whether there is a user whose
 chats are answered by the mock AI client. The
@@ -46,7 +46,7 @@ to the network and puts a TLS-terminating reverse proxy in front of
 auth; the proxy is not part of the setup.
 
 The deployment is bound to one host: `backend` keeps its files in
-the `data/` directory. All inference runs at Anthropic, so the host
+the `data/` directory. All inference runs at Anthropic and Mistral, so the host
 itself does little more than wait on the network. The number of users
 is bounded by the rate limit and budget of the one API key they share
 (chapter 11), not by the host.

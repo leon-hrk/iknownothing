@@ -11,6 +11,11 @@
 | A mastery signal in `progress.md` from a task the tutor graded
   (Tier A). Counts as evidence.
 
+| Block
+| A paragraph of a source conversion, or one of its page markers,
+  numbered from 1 per file. Topic sources name their tasks as ranges
+  of blocks.
+
 | Cheatsheet
 | `cheatsheet.md`: key terms, formulas, and solution strategies the
   student has encountered. A living artifact, updated by the tutor
@@ -30,8 +35,9 @@
   `update_cheatsheet`, `pose_task`.
 
 | Derived file
-| A file generated from the sources: `topics.json`, the topic
-  artifacts, and the intermediate results in `ingestion/`. Written once by ingestion;
+| A file generated from the sources: their conversions,
+  `topics.json`, the topic artifacts, and the intermediate results in
+  `ingestion/`. Written once by ingestion;
   read-only for the student.
 
 | Document type
@@ -53,8 +59,8 @@
   `notes.md`, provided by the operator.
 
 | Ingestion
-| The pipeline that turns a course's PDFs into topics with their
-  sources, topic directories, and the topic list.
+| The pipeline that turns a course's PDFs into Markdown, topics with
+  their sources, topic directories, and the topic list.
 
 | Living artifact
 | A file derived from the student rather than from the material:
@@ -86,6 +92,10 @@
 | Source
 | A course PDF in `sources/`.
 
+| Source conversion
+| The Markdown of a source, `sources/<type>/<file>.md`, with the
+  figures the OCR cut out next to it.
+
 | Source priority
 | The ranking of document types. For what a topic is: past exams >
   exercises. For solution style and notation: exercise solutions >
@@ -113,18 +123,24 @@
 | Topic list
 | `topics.json`: the topics in priority order, each with its priority,
   topic directory, and sources. Orders the topic tree, gives the
-  course-level chat the priorities and tasks, and a topic-level chat its source
-  pages.
+  course-level chat the priorities and tasks, and a topic-level chat
+  the block ranges of its tasks.
 
 | Topic source
-| One task of a topic in the exams or exercises: its label, its
-  gradability tier, and its page ranges, each in one file - the task,
-  the figures and tables it refers to, and an exercise's solution.
-  The *source pages* of a topic are loaded into its topic-level
-  chat.
+| One task of a topic in the exams or exercises: its ID, its label,
+  its gradability tier, its fit - `loose` for an exercise task that
+  only possibly belongs to the topic - and its block ranges, each in
+  one conversion -
+  the task, the figures, tables, and data it refers to, and its
+  solution. They are loaded into the topic's topic-level chat.
 
 | Topic-level chat
 | A session scoped to one topic, for tutoring and quizzing.
+
+| Unit
+| The files of one past exam or one exercise sheet with its
+  solutions, which carry the same number in their names. Topic
+  extraction and task assignment read one unit per request.
 
 | v0
 | The first version. Its scope is chapter 1; what it does not include

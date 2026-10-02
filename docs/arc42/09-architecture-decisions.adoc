@@ -19,6 +19,100 @@
 // Consequences::
 // What this costs us and what it rules out.
 
+[[adr-units]]
+=== 16. Topic extraction reads the course unit by unit
+
+Status:: accepted
+
+Context::
+Topic extraction over all material in one request produces one long
+reply: for a course of 100 pages, about 45,000 output tokens, mostly
+thinking, generated in one sequence for about ten minutes. A single
+violation repeats the whole request. Material added to a course later
+would need the whole course read again.
+
+Decision::
+Topic extraction reads the course by unit - a past exam or an
+exercise sheet, with its solutions. The past exams define the topics,
+one request per exam after another, each with the topics so far; the
+reply holds only new and changed topics and the exam's sources. Then
+every exercise sheet is assigned to these topics in parallel requests
+that cannot create topics; a task that only possibly belongs to a
+topic goes to it as a loose fit, and a task no topic relates to goes
+to a topic `other-tasks`. A last request groups the tasks of
+`other-tasks` into topics of their own. Without past exams, the exercise sheets define the
+topics one after another. Ingestion checks every reply, applies it,
+and stores the result. The priority of a topic is computed from the
+past exams its sources stand in.
+
+Consequences::
+A violation repeats one unit, and an interrupted ingestion resumes
+with the units not read. The past exams are read one after another,
+the exercise sheets at once; every request sends the topic list
+again. The exams read first shape the topics: topics are only added
+and described, never merged or split, and exercise content outside
+the exams' topics becomes topics of low priority. The priority follows a
+fixed rule instead of the model's judgement. Reading added material
+as further units is prepared, not built.
+
+[[adr-task-blocks]]
+=== 15. Topics reference their tasks as block ranges of the conversions
+
+Status:: accepted
+
+Context::
+A topic-level chat sends the material of its tasks with every
+request. A PDF page holds more than the task it is sent for, and the
+data and figures a subtask refers to can stand on another page. The
+conversions (<<adr-mistral-ocr>>) are text and can be cut at any
+paragraph. The model has to name the positions in its reply, and
+ingestion has to check them. Numbering every block costs about 7 %
+more input in topic extraction.
+
+Decision::
+Ingestion splits every conversion into blocks and sends them
+numbered. Topic extraction names the block ranges of each task: its
+statement, the data and figures it refers to, and its solution. Every
+task gets an ID. A topic-level chat loads exactly these blocks, with
+the figures in them as images.
+
+Consequences::
+A chat carries its tasks and nothing else of their pages. Block
+numbers hold as long as the conversion is unchanged; a conversion is
+written once and never edited. A range cut too tight misses data the
+task needs, and nothing but a review notices. `topic.md` shows the
+pages the ranges span.
+
+[[adr-mistral-ocr]]
+=== 14. Ingestion converts the sources to Markdown with Mistral OCR
+
+Status:: accepted
+
+Context::
+A PDF page sent as a document costs about 2,100 input tokens in every
+request that carries it, and a chat whose cache has expired pays for
+all of its pages again. A page holds more than the task it is sent
+for. Transcription by the model costs output tokens for every page
+(<<adr-source-pages>>). On a course of 100 pages, Mistral OCR produced
+about 550 tokens of Markdown per page, and the figures it cuts out
+cost about 90 tokens each as images, at $4 per 1,000 pages;
+transcription with Claude Sonnet cost $11 per 1,000 pages. Mistral OCR
+does not describe figures.
+
+Decision::
+Ingestion converts every source PDF with the Mistral OCR API into
+Markdown with one section per page. The figures it cuts out are
+stored as images next to the Markdown and referenced from it, not
+described. Topic extraction reads the Markdown without the figures.
+The UI shows the converted sources.
+
+Consequences::
+Course material also goes to Mistral, an EU provider, and the instance
+needs a Mistral API key. The conversion costs per page and runs once.
+OCR errors - code read as a formula, a figure not cut out - stay in
+the Markdown. Figures are as sharp as the OCR cuts them. Topic
+extraction sees where a figure stands, not what it shows.
+
 [[adr-no-login]]
 === 13. Users choose themselves without login
 
@@ -70,7 +164,7 @@ job queue.
 [[adr-source-pages]]
 === 11. Topics reference their source pages instead of transcribing them
 
-Status:: accepted
+Status:: superseded by 15
 
 Context::
 To tutor a topic, the tutor needs its original tasks, their
@@ -168,7 +262,7 @@ configuration.
 
 Consequences::
 The large model reads the whole material once and otherwise sees one
-chat's context: a topic's source pages and the student's state. Models
+chat's context: a topic's tasks and the student's state. Models
 can be exchanged without code changes. The chat is the only large-model
 request type that repeats per student interaction, so its cost
 depends on prompt caching.
@@ -241,7 +335,8 @@ Anthropic SDK. There is no provider abstraction.
 Consequences::
 Ingestion, tutoring, and grading use one API and one
 model family. The instance needs an Anthropic API key, and course
-material always goes to a US provider. Adding another provider, such
+material always goes to a US provider. OCR is not a model call; it
+goes to Mistral (<<adr-mistral-ocr>>). Adding another provider, such
 as an EU-hosted one (chapter 1, out of scope), requires introducing a
 provider abstraction first.
 

@@ -7,15 +7,36 @@ participant "Courses\n(command)" as courses
 participant "Ingestion" as ingestion
 participant "Course Store" as store
 participant "AI Client" as ai
+participant "OCR Client" as ocr
 
 operator -> courses : course add <user> <course> [<dir>]
 courses -> store : sources/<type>/<file>.pdf,\nnotes.md
 courses -> ingestion : ingest
 activate ingestion
 
-ingestion -> ai : all PDFs, notes.md
-ai --> ingestion : language, topics with sources
+loop every PDF without Markdown
+  ingestion -> ocr : PDF
+  ocr --> ingestion : Markdown, figures
+  ingestion -> store : sources/<type>/<file>/*,\nsources/<type>/<file>.md
+end
+
+loop every past exam not read yet
+  ingestion -> ai : its conversions without figures,\nnotes.md, topics so far
+  ai --> ingestion : new and changed topics,\nsources
+  ingestion -> store : ingestion/topics.json
+end
+
+par every exercise sheet not read yet
+  ingestion -> ai : its conversions without figures,\ntopics
+  ai --> ingestion : sources assigned to topics\nor other-tasks
+end
 ingestion -> store : ingestion/topics.json
+
+opt other-tasks has tasks
+  ingestion -> ai : tasks of other-tasks, topics
+  ai --> ingestion : new topics, tasks that move
+  ingestion -> store : ingestion/topics.json
+end
 
 ingestion -> store : topics/<topic>/topic.md,\ntopics.json
 deactivate ingestion

@@ -62,20 +62,21 @@ include::diagrams/building-blocks-level2.puml[]
 
 | Course Store
 | The only access path to `data/<user>/<course>/`. Knows the storage
-  layout, resolves every path within the requesting user's directory,
-  and cuts source pages out of the PDFs.
+  layout and resolves every path within the requesting user's
+  directory.
 | The filesystem
 
 | Ingestion
-| The ingestion pipeline: topic extraction, topic files, and topic
-  list. Runs in the operator's command; each step writes its result
+| The ingestion pipeline: conversion, topic extraction, topic files,
+  and topic list. Splits conversions into blocks, for itself and the
+  Tutor. Runs in the operator's command; each step writes its result
   through the Course Store before the next one starts and is printed
   as it starts (see <<runtime-ingestion>>).
 | -
 
 | Tutor
 | Course-level and topic-level chats: assembles each chat's context
-  from the Course Store, a topic's source pages included, streams replies as Server-Sent Events,
+  from the Course Store, a topic's tasks included, streams replies as Server-Sent Events,
   executes the chat tools, stores the open chat after each reply, and
   finalizes an ended topic-level session by updating its `progress.md`,
   in a background task after the response.
@@ -93,6 +94,13 @@ include::diagrams/building-blocks-level2.puml[]
   thinking summary. Other requests fail. Its chats open as a sample
   chat that sends each command once, and nothing of them is stored. All other users are unaffected.
 | Prompts
+
+| OCR Client
+| The only caller of the Mistral OCR API. Sends a PDF with the
+  instance's Mistral API key, retries rate-limited and failed
+  requests, returns the Markdown and the figures of every page, and
+  logs the pages processed.
+| -
 |===
 
 ==== Prompts

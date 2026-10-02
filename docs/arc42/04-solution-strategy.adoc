@@ -21,8 +21,9 @@
 
 | AI
 | Anthropic Messages API, called directly (see <<adr-anthropic>>).
-  Ingestion and topic-level chats send PDF pages as documents and use
-  Claude's vision capability.
+  Ingestion converts the PDFs to Markdown with the Mistral OCR API and
+  extracts the topics from it (see <<adr-mistral-ocr>>). Topic-level
+  chats send their tasks as Markdown with the figures as images.
 
 | Storage
 | Filesystem only. A user is a directory; course PDFs, all derived
@@ -35,8 +36,9 @@
   <<adr-operator-ingestion>>).
 
 | Retrieval
-| None. Every topic records its source pages, and a topic-level chat
-  loads them; there is no vector store and no embedding pipeline.
+| None. Every topic records the block ranges of its tasks, and a
+  topic-level chat loads them; there is no vector store and no
+  embedding pipeline.
 |===
 
 === Principles
@@ -44,13 +46,13 @@
 . *Markdown as the data layer.* All derived content lives in
   Markdown files the student can open in the UI. JSON holds only the
   topic list and intermediate pipeline results.
-. *Originals, not transcriptions.* Nothing of the material is
-  transcribed. The tutor reads the original pages, figures and
-  formulas included.
+. *No transcription by the model.* OCR converts the material; the
+  model only names where tasks stand. The tutor reads the tasks as
+  converted, figures as images.
 . *Ingest once.* The whole material is analysed once per course, and
-  tutoring sessions run on the pages of one topic.
+  tutoring sessions run on the tasks of one topic.
 . *Context discipline.* Sessions load only the current topic's
-  artifacts and source pages - never entire courses.
+  artifacts and tasks - never entire courses.
 . *Fail gracefully on missing materials.* The pipeline adapts to
   whatever material there is for a course.
 . *Multi-tenant by design.* All data is strictly namespaced per user;
@@ -69,8 +71,9 @@
   the chat.
 
 | Cost efficiency
-| Ingest once in a single request, context discipline, two model
-  tiers, prompt caching of the source pages in chats.
+| Ingest once, unit by unit, context discipline, two model
+  tiers, OCR instead of PDF documents, prompt caching of the tasks in
+  chats.
 
 | Transparency
 | Markdown as the data layer, every file readable in the UI.

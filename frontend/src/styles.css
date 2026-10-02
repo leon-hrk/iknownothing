@@ -117,6 +117,7 @@ li.usage { padding: 3px 6px 3px 26px; }
 .markdown pre { background: var(--panel); padding: 8px 12px; border-radius: 8px; overflow-x: auto; }
 .markdown code { font-size: 13px; }
 .markdown table { border-collapse: collapse; }
+.markdown img { max-width: 100%; }
 .markdown th, .markdown td { border: 1px solid var(--line); padding: 4px 8px; }
 .markdown .katex-display { overflow-x: auto; overflow-y: hidden; }
 
