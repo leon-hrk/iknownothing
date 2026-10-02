@@ -9,6 +9,7 @@
   --error: #b91c1c;
   --high: #dc2626;
   --medium: #ea580c;
+  --hover: color-mix(in srgb, var(--line) 55%, var(--panel));
   font-family: system-ui, sans-serif;
   font-size: 15px;
   color: var(--text);
@@ -56,17 +57,17 @@ button {
 .users button:hover, .users button.active { background: var(--line); }
 .users .muted { padding: 6px 10px; }
 
-.sidebar[hidden] { display: none; }
-.sidebar { flex: none; width: 280px; display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-right: 1px solid var(--line); }
+.split { flex: 1; min-width: 0; }
+.sidebar { display: flex; flex-direction: column; height: 100%; background: var(--panel); }
+.sidebar > header { padding-top: 14px; font-size: 18px; font-weight: 700; line-height: 22px; }
 .sidebar > ul { flex: 1; overflow-y: auto; padding: 8px; }
 .sidebar ul { list-style: none; margin: 0; }
 .sidebar ul ul { padding-left: 14px; }
 .row { display: flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 6px; }
-/* Text too long for its line fades out instead of ending in an ellipsis. */
-.row > button:not(.caret), .row > span.muted, .file {
-  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
-}
-.row > button:not(.caret), .row > span.muted, .file { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
+.row > button:not(.caret), .row > span.muted, .file { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.row, .file { transition: background-color 0.15s, color 0.15s; }
+.row:hover, .file:hover { background: var(--hover); }
+.file:hover { color: var(--text); }
 .row.active, li.active > .file { background: var(--line); }
 .caret { width: 16px; color: var(--muted); flex: none; }
 .file { display: block; width: 100%; padding: 3px 6px 3px 26px; border-radius: 6px; color: var(--muted); }
@@ -74,9 +75,9 @@ button {
 .caret.high { color: var(--high); }
 .caret.medium { color: var(--medium); }
 
-.workspace { flex: 1; min-width: 0; overflow: clip; }
+.workspace { height: 100%; overflow: clip; }
 .panel { display: flex; flex-direction: column; height: 100%; outline: none; }
-header { display: flex; align-items: center; min-height: 35px; padding: 6px 16px; border-bottom: 1px solid var(--line); font-weight: 600; overflow: hidden; white-space: nowrap; }
+header { display: flex; align-items: center; min-height: 35px; padding: 6px 16px; font-weight: 600; overflow: hidden; white-space: nowrap; }
 .hint { color: var(--muted); padding: 24px; }
 
 .chat { display: flex; flex-direction: column; flex: 1; min-height: 0; }
@@ -93,7 +94,7 @@ header { display: flex; align-items: center; min-height: 35px; padding: 6px 16px
 .composer button { border: 1px solid var(--line); border-radius: 8px; padding: 4px 12px; color: var(--text); }
 
 .composer { display: flex; gap: 8px; padding: 12px max(16px, calc(50% - 380px)) 16px; }
-.bar { justify-content: flex-end; gap: 16px; min-height: 0; padding: 6px 16px; border-bottom: none; }
+.bar { justify-content: flex-end; gap: 16px; min-height: 0; padding: 6px 16px; }
 .bar .tokens { font-weight: 400; }
 .bar .end { font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--error); border: 1px solid var(--error); border-radius: 6px; padding: 0 10px; }
 .bar .end:hover:not(:disabled) { background: var(--error); color: var(--bg); }
@@ -151,8 +152,12 @@ li.usage { padding: 3px 6px 3px 26px; }
   --dv-edge-dock-indicator-color: var(--accent);
   --dv-drag-over-background-color: color-mix(in srgb, var(--accent) 20%, transparent);
 }
-:root .dockview-theme-light .dv-tabs-and-actions-container { border-bottom: 1px solid var(--line); }
-.workspace .hint { text-align: center; }
+.dockview-theme-light .dv-tab { transition: background-color 0.15s, color 0.15s; }
+.dockview-theme-light .dv-groupview > .dv-tabs-and-actions-container .dv-tabs-container > .dv-tab.dv-inactive-tab:hover {
+  background-color: var(--hover);
+  color: var(--text);
+}
+.workspace .hint { margin: 0; text-align: center; }
 
 .rail { display: flex; flex-direction: column; align-items: center; gap: 8px; min-height: 0; overflow-y: auto; }
 .course-icon { display: flex; align-items: center; justify-content: center; flex: none; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); font-size: 12px; font-weight: 600; color: var(--muted); }

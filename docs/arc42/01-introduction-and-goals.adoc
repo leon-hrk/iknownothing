@@ -286,7 +286,11 @@ arranged side by side.
   shows its tree; clicking the open course's icon hides or shows the
   tree. Below the icons, *+* creates a course.
 * The *tree* shows the open course: its topics, *Sources*, *Notes*,
-  *Cheatsheet*, and the token usage of all its topics. While the
+  *Cheatsheet*, and the token usage of all its topics. Its border
+  to the workspace can be dragged like the borders between groups;
+  dragged well below its minimum width, the tree is hidden as if
+  with the course icon. A name too long for its line ends in an
+  ellipsis. While the
   course is being ingested, the tree shows the step the ingestion is
   at; after a failed ingestion, the error and a *Retry* button; a
   course that is not ingested offers *Ingest*.
@@ -322,8 +326,8 @@ arranged side by side.
   other instead of closing them, so its chats keep streaming and its
   arrangement is there when switching back. Every course's
   arrangement, the open course, the expanded folders, the courses
-  showing their details, and whether the tree is shown are restored
-  after a reload, per user.
+  showing their details, whether the tree is shown, and its width
+  are restored after a reload, per user.
 * A bar above each chat holds, on the right, its token usage while
   the course shows its details, and the *End session* button. The button asks for
   confirmation, then ends the session: the chat is cleared. The

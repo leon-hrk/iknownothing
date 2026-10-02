@@ -1,8 +1,12 @@
 import {
-  type DockviewApi, DockviewReact, type DockviewReadyEvent, type SerializedDockview, themeLight,
+  type DockviewApi, DockviewReact, type DockviewReadyEvent, LayoutPriority, Orientation, type SerializedDockview,
+  type SplitviewApi, SplitviewReact, type SplitviewReadyEvent, themeLight,
 } from "dockview-react";
 import "dockview-react/dist/styles/dockview.css";
-import { memo, type RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext, memo, type ReactNode, type RefObject, useCallback, useContext, useEffect, useLayoutEffect, useMemo,
+  useRef, useState,
+} from "react";
 
 import {
   addUsage, chooseUser, type Course, type CourseSummary, currentUser, deleteCourse, getCourse, listCourses,
@@ -16,6 +20,16 @@ import Tokens from "./Tokens";
 
 const PANELS = { chat: ChatPanel, doc: DocPanel };
 
+/** The tree and the workspace, side by side in a split whose border can be dragged. */
+const SplitContext = createContext<{ tree: ReactNode; workspace: ReactNode }>(null!);
+const TreePanel = () => useContext(SplitContext).tree;
+const WorkspacePanel = () => useContext(SplitContext).workspace;
+const SPLIT = { tree: TreePanel, workspace: WorkspacePanel };
+
+/** The width of the tree in px: at first, and at least. */
+const TREE_WIDTH = 280;
+const TREE_MIN = 160;
+
 /** The label of the divider above the topics of each priority. */
 const PRIORITY: Record<string, string> = { high: "Priority 1", medium: "Priority 2", low: "Priority 3" };
 
@@ -26,19 +40,20 @@ const scoreColor = (score: number) => `hsl(${score * 1.2} 70% 45%)`;
 const POLL = 3000;
 
 /** What a reload restores, remembered per user in the browser: the open course, the tabs of every course, the
- * expanded folders, the courses whose topics show their details, and whether the tree is shown. */
+ * expanded folders, the courses whose topics show their details, whether the tree is shown, and its width. */
 type View = {
   course: string | null;
   layouts: Record<string, SerializedDockview>;
   expanded: string[];
   details: string[];
   sidebar: boolean;
+  width: number;
 };
 
 const viewKey = (user: string) => `ikn-view:${user}`;
 
 function loadView(user: string | null): View {
-  const empty: View = { course: null, layouts: {}, expanded: [], details: [], sidebar: true };
+  const empty: View = { course: null, layouts: {}, expanded: [], details: [], sidebar: true, width: TREE_WIDTH };
   if (!user) return empty;
   try {
     return { ...empty, ...JSON.parse(localStorage.getItem(viewKey(user)) ?? "{}") };
@@ -141,11 +156,9 @@ function DeleteDialog({ course, onDelete, onCancel }: { course: string; onDelete
 
 /** The tabs of one course, from its saved `layout`. It stays mounted while another course is shown, so its chats keep
  * streaming. */
-const CourseTabs = memo(function CourseTabs({ course, visible, width, layout, onReady, onLayout, onActive }: {
+const CourseTabs = memo(function CourseTabs({ course, visible, layout, onReady, onLayout, onActive }: {
   course: string;
   visible: boolean;
-  /** Changes when the space for the tabs does, e.g. when the tree is toggled. */
-  width: unknown;
   layout: SerializedDockview | undefined;
   onReady: (course: string, api: DockviewApi) => void;
   onLayout: (course: string, layout: SerializedDockview) => void;
@@ -154,11 +167,11 @@ const CourseTabs = memo(function CourseTabs({ course, visible, width, layout, on
   const ref = useRef<HTMLDivElement>(null);
   const api = useRef<DockviewApi | null>(null);
 
-  // dockview follows a resize a frame late; laid out at once, the tabs do not jump when the tree is toggled
+  // dockview follows a resize a frame late; laid out at once, the tabs do not jump when they are shown
   useLayoutEffect(() => {
     const el = ref.current;
     if (visible && el) api.current?.layout(el.clientWidth, el.clientHeight);
-  }, [visible, width]);
+  }, [visible]);
 
   function ready({ api: dock }: DockviewReadyEvent) {
     api.current = dock;
@@ -210,10 +223,14 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
   const [actives, setActives] = useState<Record<string, string | null>>({});
   const [cheatsheet, setCheatsheet] = useState(0);
   const [sidebar, setSidebar] = useState(saved.sidebar);
+  const [width, setWidth] = useState(saved.width);
   const [menu, setMenu] = useState<{ course: string; x: number; y: number } | null>(null);
   const [dialog, setDialog] = useState<{ course?: string } | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const apis = useRef<Record<string, DockviewApi>>({});
+  const split = useRef<SplitviewApi | null>(null);
+  const shownCourse = useRef(course);
+  shownCourse.current = course;
 
   const load = useCallback((name: string) => {
     getCourse(name).then((c) => setDetails((d) => ({ ...d, [name]: c })));
@@ -246,8 +263,31 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
   }, [ingesting, refresh]);
 
   useEffect(() => {
-    if (user) saveView(user, { course, layouts, expanded: [...expanded], details: [...shown], sidebar });
-  }, [user, course, layouts, expanded, shown, sidebar]);
+    if (user) saveView(user, { course, layouts, expanded: [...expanded], details: [...shown], sidebar, width });
+  }, [user, course, layouts, expanded, shown, sidebar, width]);
+
+  const treeVisible = sidebar && !!course;
+  useLayoutEffect(() => {
+    split.current?.getPanel("tree")?.api.setVisible(treeVisible);
+  }, [treeVisible]);
+
+  function splitReady({ api }: SplitviewReadyEvent) {
+    split.current = api;
+    const tree = api.addPanel({
+      id: "tree", component: "tree", size: saved.width, minimumSize: TREE_MIN, priority: LayoutPriority.Low, snap: true,
+    });
+    // without a size, the panels would share the width evenly
+    const space = api.addPanel({ id: "workspace", component: "workspace", size: api.width - saved.width });
+    tree.api.setVisible(treeVisible);
+    // dragged narrower than its minimum, the tree snaps shut, as if hidden with the course icon
+    tree.api.onDidVisibilityChange(({ isVisible }) => { if (shownCourse.current) setSidebar(isVisible); });
+    tree.api.onDidDimensionsChange(({ width: w }) => { if (tree.api.isVisible && w > 0) setWidth(Math.round(w)); });
+    // dockview follows a resize a frame late; laid out at once, the tabs do not jump while the tree is resized
+    space.api.onDidDimensionsChange(({ width: w, height: h }) => {
+      const name = shownCourse.current;
+      if (name) apis.current[name]?.layout(w, h);
+    });
+  }
 
   function open(name: string) {
     setCourse(name);
@@ -404,6 +444,77 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
     );
   }
 
+  const tree = (
+    <nav className="sidebar">
+      <header>{course}</header>
+      {summary?.ingestion && <p className="status pending">Ingesting: {summary.ingestion}</p>}
+      {summary?.error && !summary.ingestion && (
+        <div className="status">
+          <p className="error">Ingestion failed: {summary.error}</p>
+          <button className="retry" onClick={() => retry(summary.name)}>Retry</button>
+        </div>
+      )}
+      {summary && summary.status !== "ready" && !summary.ingestion && !summary.error && (
+        <div className="status">
+          <p className="muted">Not ingested.</p>
+          <button className="retry" onClick={() => retry(summary.name)}>Ingest</button>
+        </div>
+      )}
+      {detail && (
+        <ul>
+          {detail.topics.map((t, i) => {
+            const topicId = chatId(course!, t.slug);
+            return [
+              t.priority !== detail.topics[i - 1]?.priority && (
+                <li key={`priority-${t.priority}`} className="divider"><span>{PRIORITY[t.priority] ?? t.priority}</span></li>
+              ),
+              <li key={t.slug}>
+                <div className={["row", active === topicId && "active", t.score === null && "paper"].filter(Boolean).join(" ")}>
+                  <span className="score" style={t.score === null ? undefined : { color: scoreColor(t.score) }} title={`${t.priority} priority · ${t.score === null
+                    ? "no tasks to practise here, only ones to practise on paper" : `${t.score}% of the tasks done`}`}>
+                    {t.score === null ? "" : `${t.score}%`}
+                  </span>
+                  <button title={t.name} onClick={() => show(topicId, "chat", t.name, { course: course!, topic: t.slug })}>
+                    {t.name}
+                  </button>
+                </div>
+                {shown.has(course!) && (
+                  <ul>
+                    <li className="usage"><Tokens usage={t.usage} stacked /></li>
+                    {t.files.map((f) => {
+                      const name = f.split("/").at(-1)!;
+                      return file(f, name, `${t.name} · ${name}`);
+                    })}
+                  </ul>
+                )}
+              </li>
+            ];
+          })}
+          {detail.sources.length > 0 && sources(detail.sources)}
+          {detail.files.includes("notes.md") && file("notes.md", "Notes", `${course} · Notes`)}
+          {detail.files.includes(CHEATSHEET) && file(CHEATSHEET, "Cheatsheet", `${course} · Cheatsheet`)}
+          {shown.has(course!) && detail.topics.length > 0 && (
+            <li className="usage" title="Whole course: all topics">
+              <Tokens usage={detail.topics.map((t) => t.usage).reduce(addUsage, NO_USAGE)} stacked />
+            </li>
+          )}
+        </ul>
+      )}
+    </nav>
+  );
+
+  const workspace = (
+    <ShellContext.Provider value={shell}>
+      <div className="workspace">
+        {visited.map((name) => (
+          <CourseTabs key={name} course={name} visible={name === course} layout={saved.layouts[name]}
+            onReady={onReady} onLayout={onLayout} onActive={onActive} />
+        ))}
+        {!course && <p className="hint">{user ? "Create a course with +." : "Choose a user at the bottom left."}</p>}
+      </div>
+    </ShellContext.Provider>
+  );
+
   return (
     <div className="app">
       <div className="dock">
@@ -421,71 +532,10 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
         </div>
         <UserMenu user={user} users={users} onChoose={switchUser} />
       </div>
-      <nav className="sidebar" hidden={!sidebar || !course}>
-        <header>{course}</header>
-        {summary?.ingestion && <p className="status pending">Ingesting: {summary.ingestion}</p>}
-        {summary?.error && !summary.ingestion && (
-          <div className="status">
-            <p className="error">Ingestion failed: {summary.error}</p>
-            <button className="retry" onClick={() => retry(summary.name)}>Retry</button>
-          </div>
-        )}
-        {summary && summary.status !== "ready" && !summary.ingestion && !summary.error && (
-          <div className="status">
-            <p className="muted">Not ingested.</p>
-            <button className="retry" onClick={() => retry(summary.name)}>Ingest</button>
-          </div>
-        )}
-        {detail && (
-          <ul>
-            {detail.topics.map((t, i) => {
-              const topicId = chatId(course!, t.slug);
-              return [
-                t.priority !== detail.topics[i - 1]?.priority && (
-                  <li key={`priority-${t.priority}`} className="divider"><span>{PRIORITY[t.priority] ?? t.priority}</span></li>
-                ),
-                <li key={t.slug}>
-                  <div className={["row", active === topicId && "active", t.score === null && "paper"].filter(Boolean).join(" ")}>
-                    <span className="score" style={t.score === null ? undefined : { color: scoreColor(t.score) }} title={`${t.priority} priority · ${t.score === null
-                      ? "no tasks to practise here, only ones to practise on paper" : `${t.score}% of the tasks done`}`}>
-                      {t.score === null ? "" : `${t.score}%`}
-                    </span>
-                    <button title={t.name} onClick={() => show(topicId, "chat", t.name, { course: course!, topic: t.slug })}>
-                      {t.name}
-                    </button>
-                  </div>
-                  {shown.has(course!) && (
-                    <ul>
-                      <li className="usage"><Tokens usage={t.usage} stacked /></li>
-                      {t.files.map((f) => {
-                        const name = f.split("/").at(-1)!;
-                        return file(f, name, `${t.name} · ${name}`);
-                      })}
-                    </ul>
-                  )}
-                </li>
-              ];
-            })}
-            {detail.sources.length > 0 && sources(detail.sources)}
-            {detail.files.includes("notes.md") && file("notes.md", "Notes", `${course} · Notes`)}
-            {detail.files.includes(CHEATSHEET) && file(CHEATSHEET, "Cheatsheet", `${course} · Cheatsheet`)}
-            {shown.has(course!) && detail.topics.length > 0 && (
-              <li className="usage" title="Whole course: all topics">
-                <Tokens usage={detail.topics.map((t) => t.usage).reduce(addUsage, NO_USAGE)} stacked />
-              </li>
-            )}
-          </ul>
-        )}
-      </nav>
-      <ShellContext.Provider value={shell}>
-        <div className="workspace">
-          {visited.map((name) => (
-            <CourseTabs key={name} course={name} visible={name === course} width={sidebar} layout={saved.layouts[name]}
-              onReady={onReady} onLayout={onLayout} onActive={onActive} />
-          ))}
-          {!course && <p className="hint">{user ? "Create a course with +." : "Choose a user at the bottom left."}</p>}
-        </div>
-      </ShellContext.Provider>
+      <SplitContext.Provider value={{ tree, workspace }}>
+        <SplitviewReact className="split dockview-theme-light" components={SPLIT} onReady={splitReady}
+          orientation={Orientation.HORIZONTAL} proportionalLayout={false} />
+      </SplitContext.Provider>
       {menu && (() => {
         const s = courses.find((c) => c.name === menu.course);
         return s && (
