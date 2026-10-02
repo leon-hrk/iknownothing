@@ -24,7 +24,7 @@ from iknownothing.course_store import CourseStore, CourseStoreError
 from iknownothing.ingestion import runs
 from iknownothing.ingestion.pipeline import RESULT, unit
 from iknownothing.mock.ai_client import SAMPLE_DATA, MockAIClient, sample_chat
-from iknownothing.tutor.chat import PROGRESS, TutorError, reply, topic_entry
+from iknownothing.tutor.chat import PROGRESS, TutorError, progress, reply, topic_entry
 
 log = logging.getLogger(__name__)
 
@@ -172,8 +172,8 @@ def delete_course(store: CourseStore = Depends(course_store)) -> None:
 
 @app.get("/api/courses/{course}")
 def get_course(store: CourseStore = Depends(course_store)) -> dict:
-    """The course with its topics in priority order, each with the Markdown files and the progress of its directory, and its
-    sources: the PDFs and their Markdown conversions.
+    """The course with its topics in priority order, each with its score, the Markdown files and the progress of its
+    directory, and its sources: the PDFs and their Markdown conversions.
 
     `usage` holds the tokens spent on the chats of a topic.
     """
@@ -182,6 +182,7 @@ def get_course(store: CourseStore = Depends(course_store)) -> dict:
         for t in store.read_json("topics.json"):
             files = sorted(p.name for p in store.path(t["dir"]).glob("*") if p.suffix == ".md" or p.name == PROGRESS)
             topics.append({"slug": t["slug"], "name": t["name"], "priority": t["priority"],
+                           "score": progress(store, t)["score"],
                            "files": [f"{t['dir']}/{f}" for f in files], "usage": courses.usage(store, t["dir"])})
     sources = sorted((p.relative_to(store.root).as_posix() for p in store.path("sources").glob("*/*")
                       if p.suffix in (".md", ".pdf")),

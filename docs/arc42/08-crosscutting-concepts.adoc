@@ -371,7 +371,7 @@ depend on the course.
   valid ones - and a note of one sentence, empty when there is
   nothing to keep; for a Tier B task, the note is the
   student's self-rating, marked as such. Marks the introduction as
-  given or the task as done, with the note, in `progress.json`. The
-  chat continues from the updated progress without the messages
+  given or the task as done, with the note, in `progress.json`, and
+  computes the topic's score again. The chat continues from the updated progress without the messages
   before.
 |===

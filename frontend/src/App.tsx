@@ -16,22 +16,29 @@ import Tokens from "./Tokens";
 
 const PANELS = { chat: ChatPanel, doc: DocPanel };
 
+/** The label of the divider above the topics of each priority. */
+const PRIORITY: Record<string, string> = { high: "Priority 1", medium: "Priority 2", low: "Priority 3" };
+
+/** The color of a score, from red for 0% to green for 100%. */
+const scoreColor = (score: number) => `hsl(${score * 1.2} 70% 45%)`;
+
 /** How often the course list is asked for while an ingestion runs, in ms. */
 const POLL = 3000;
 
 /** What a reload restores, remembered per user in the browser: the open course, the tabs of every course, the
- * expanded folders, and whether the tree is shown. */
+ * expanded folders, the courses whose topics show their details, and whether the tree is shown. */
 type View = {
   course: string | null;
   layouts: Record<string, SerializedDockview>;
   expanded: string[];
+  details: string[];
   sidebar: boolean;
 };
 
 const viewKey = (user: string) => `ikn-view:${user}`;
 
 function loadView(user: string | null): View {
-  const empty: View = { course: null, layouts: {}, expanded: [], sidebar: true };
+  const empty: View = { course: null, layouts: {}, expanded: [], details: [], sidebar: true };
   if (!user) return empty;
   try {
     return { ...empty, ...JSON.parse(localStorage.getItem(viewKey(user)) ?? "{}") };
@@ -89,9 +96,9 @@ function UserMenu({ user, users, onChoose }: { user: string | null; users: strin
 }
 
 /** The menu of a course icon, opened by a right click. */
-function CourseMenu({ x, y, summary, onAdd, onRetry, onDelete, onClose }: {
-  x: number; y: number; summary: CourseSummary;
-  onAdd: () => void; onRetry: () => void; onDelete: () => void; onClose: () => void;
+function CourseMenu({ x, y, summary, details, onDetails, onAdd, onRetry, onDelete, onClose }: {
+  x: number; y: number; summary: CourseSummary; details: boolean;
+  onDetails: () => void; onAdd: () => void; onRetry: () => void; onDelete: () => void; onClose: () => void;
 }) {
   const ref = useRef<HTMLUListElement>(null);
   useDismiss(ref, true, onClose);
@@ -103,6 +110,7 @@ function CourseMenu({ x, y, summary, onAdd, onRetry, onDelete, onClose }: {
   );
   return (
     <ul className="context-menu" ref={ref} style={{ left: x, top: y }}>
+      {item(details ? "Hide details" : "Show hidden details", onDetails)}
       {item("Add files", onAdd, running)}
       {(summary.error !== null || summary.status !== "ready") && item("Retry ingestion", onRetry, running)}
       {item("Delete course", onDelete, running, true)}
@@ -197,6 +205,7 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
   const [course, setCourse] = useState<string | null>(saved.course);
   const [visited, setVisited] = useState<string[]>(saved.course ? [saved.course] : []);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(saved.expanded));
+  const [shown, setShown] = useState<Set<string>>(() => new Set(saved.details));
   const [layouts, setLayouts] = useState(saved.layouts);
   const [actives, setActives] = useState<Record<string, string | null>>({});
   const [cheatsheet, setCheatsheet] = useState(0);
@@ -237,8 +246,8 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
   }, [ingesting, refresh]);
 
   useEffect(() => {
-    if (user) saveView(user, { course, layouts, expanded: [...expanded], sidebar });
-  }, [user, course, layouts, expanded, sidebar]);
+    if (user) saveView(user, { course, layouts, expanded: [...expanded], details: [...shown], sidebar });
+  }, [user, course, layouts, expanded, shown, sidebar]);
 
   function open(name: string) {
     setCourse(name);
@@ -252,6 +261,14 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
       open(name);
       setSidebar(true);
     }
+  }
+
+  function toggleDetails(name: string) {
+    setShown((s) => {
+      const next = new Set(s);
+      if (!next.delete(name)) next.add(name);
+      return next;
+    });
   }
 
   function toggle(key: string) {
@@ -327,8 +344,8 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
   }, [load]);
 
   const shell = useMemo<Shell>(
-    () => ({ user, cheatsheet, load, onCheatsheet, openLink }),
-    [user, cheatsheet, load, onCheatsheet, openLink],
+    () => ({ user, details: shown, cheatsheet, load, onCheatsheet, openLink }),
+    [user, shown, cheatsheet, load, onCheatsheet, openLink],
   );
 
   const onReady = useCallback((name: string, api: DockviewApi) => { apis.current[name] = api; }, []);
@@ -352,8 +369,9 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
     );
   }
 
-  /** The source PDFs and their conversions, grouped by document type. */
-  function sources(paths: string[]) {
+  /** The source PDFs, grouped by document type; their conversions only while the course shows its details. */
+  function sources(all: string[]) {
+    const paths = shown.has(course!) ? all : all.filter((p) => p.endsWith(".pdf"));
     const key = `${course}:sources`;
     const types = [...new Set(paths.map((p) => p.split("/")[1]))];
     const folder = (k: string, label: string) => (
@@ -420,20 +438,23 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
         )}
         {detail && (
           <ul>
-            {detail.topics.map((t) => {
-              const key = `${course}/${t.slug}`;
+            {detail.topics.map((t, i) => {
               const topicId = chatId(course!, t.slug);
-              return (
+              return [
+                t.priority !== detail.topics[i - 1]?.priority && (
+                  <li key={`priority-${t.priority}`} className="divider"><span>{PRIORITY[t.priority] ?? t.priority}</span></li>
+                ),
                 <li key={t.slug}>
-                  <div className={active === topicId ? "row active" : "row"}>
-                    <button className={`caret ${t.priority}`} title={`${t.priority} priority`} onClick={() => toggle(key)}>
-                      {expanded.has(key) ? "▾" : "▸"}
-                    </button>
+                  <div className={["row", active === topicId && "active", t.score === null && "paper"].filter(Boolean).join(" ")}>
+                    <span className="score" style={t.score === null ? undefined : { color: scoreColor(t.score) }} title={`${t.priority} priority · ${t.score === null
+                      ? "no tasks to practise here, only ones to practise on paper" : `${t.score}% of the tasks done`}`}>
+                      {t.score === null ? "" : `${t.score}%`}
+                    </span>
                     <button title={t.name} onClick={() => show(topicId, "chat", t.name, { course: course!, topic: t.slug })}>
                       {t.name}
                     </button>
                   </div>
-                  {expanded.has(key) && (
+                  {shown.has(course!) && (
                     <ul>
                       <li className="usage"><Tokens usage={t.usage} stacked /></li>
                       {t.files.map((f) => {
@@ -443,12 +464,12 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
                     </ul>
                   )}
                 </li>
-              );
+              ];
             })}
             {detail.sources.length > 0 && sources(detail.sources)}
             {detail.files.includes("notes.md") && file("notes.md", "Notes", `${course} · Notes`)}
             {detail.files.includes(CHEATSHEET) && file(CHEATSHEET, "Cheatsheet", `${course} · Cheatsheet`)}
-            {detail.topics.length > 0 && (
+            {shown.has(course!) && detail.topics.length > 0 && (
               <li className="usage" title="Whole course: all topics">
                 <Tokens usage={detail.topics.map((t) => t.usage).reduce(addUsage, NO_USAGE)} stacked />
               </li>
@@ -468,7 +489,8 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
       {menu && (() => {
         const s = courses.find((c) => c.name === menu.course);
         return s && (
-          <CourseMenu x={menu.x} y={menu.y} summary={s} onClose={() => setMenu(null)}
+          <CourseMenu x={menu.x} y={menu.y} summary={s} details={shown.has(s.name)} onClose={() => setMenu(null)}
+            onDetails={() => toggleDetails(s.name)}
             onAdd={() => setDialog({ course: s.name })} onRetry={() => retry(s.name)} onDelete={() => setDeleting(s.name)} />
         );
       })()}

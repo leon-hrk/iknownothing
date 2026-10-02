@@ -22,6 +22,8 @@ export const docId = (course: string, path: string) => `doc:${course}:${path}`;
 /** What the panels need from the workspace around them. */
 export type Shell = {
   user: string | null;
+  /** The courses that show their details, such as token usage. */
+  details: Set<string>;
   /** Counts the cheatsheet updates, so open cheatsheets reload. */
   cheatsheet: number;
   /** Reloads the course in the tree, e.g. its token usage. */
@@ -97,7 +99,7 @@ export function ChatPanel({ params: { course, topic }, api }: IDockviewPanelProp
   return (
     <div className="panel" tabIndex={-1}>
       <header className="bar">
-        <Tokens usage={chat.usage} />
+        {shell.details.has(course) && <Tokens usage={chat.usage} />}
         <button className="end" disabled={busy || !chat.transcript.length} onClick={() => setEnding(true)}>
           End session
         </button>

@@ -242,9 +242,10 @@ chooses *End session* and confirms; its chat is then cleared.
   soon as something worth keeping comes up, so the student can use it
   while solving tasks. The student changes it by asking the tutor in
   the chat.
-* *`progress.json`* - one per topic: whether the introduction was
-  given, and every Tier A and B task of the topic with whether it is
-  done and a one-sentence note on how it went. The tutor records a
+* *`progress.json`* - one per topic: its score, the percentage of its
+  Tier A and B tasks done; whether the introduction was given; and
+  every Tier A and B task of the topic with whether it is done and a
+  one-sentence note on how it went. The tutor records a
   step in it as soon as the step is done, so every new session starts
   informed about the student's current level. A done Tier A task is
   assessed; a done Tier B task is self-reported, its note the
@@ -301,10 +302,16 @@ arranged side by side.
   filled with the course's notes when adding. A hint says that a
   solution sheet goes with the exam or exercise sheet of the same
   digits. *OK* uploads the files and starts the ingestion.
-* *Topics* are sorted by exam priority; the arrow in front of a topic
-  is red for high, orange for medium, and grey for low priority.
-  Clicking one opens its
-  topic chat; expanding it lists the files of its topic directory.
+* *Topics* are sorted by exam priority, under a divider for each:
+  *Priority 1* for high, *2* for medium, *3* for low. In front of
+  each topic stands its score, the percentage of its tasks done,
+  coloured from red at 0% to green at 100%. A topic with only
+  Tier C tasks shows no score and is greyed out. Clicking a topic
+  opens its topic chat. *Show hidden details* in the menu of the
+  course icon shows under every topic its token usage and the files
+  of its topic directory, under *Sources* the conversions, the token
+  usage of the whole course, and in the bar of each of its chats the
+  chat's token usage; *Hide details* hides them again.
 * The *workspace* right of the tree holds the tabs of the open
   course, in groups. A chat or
   file opens as a tab right of the active tab, in the active group;
@@ -314,26 +321,28 @@ arranged side by side.
   has its own workspace: switching courses hides the tabs of the
   other instead of closing them, so its chats keep streaming and its
   arrangement is there when switching back. Every course's
-  arrangement, the open course, the expanded folders, and whether
-  the tree is shown are restored after a reload, per user.
-* A bar above each chat holds, on the right, its token
-  usage and the *End session* button. The button asks for
+  arrangement, the open course, the expanded folders, the courses
+  showing their details, and whether the tree is shown are restored
+  after a reload, per user.
+* A bar above each chat holds, on the right, its token usage while
+  the course shows its details, and the *End session* button. The button asks for
   confirmation, then ends the session: the chat is cleared. The
   progress recorded in its steps is kept.
 * A chat tab is an ordinary chat. Tutoring and quizzing happen
   there.
 * Token usage is shown as input (↑) tokens, cached input included and
   the cached share named, output (↓) tokens, and the approximate cost
-  in euros: in the bar of each chat for its session, and on three
-  lines in an expanded topic for all its chats and at the end of the
-  tree for all topics of the course together.
+  in euros, while the course shows its details: in the bar of each
+  chat for its session, on three lines under a topic for all its
+  chats, and at the end of the tree for all topics of the course
+  together.
 * Clicking a Markdown file - the files of a topic, *Notes*,
-  *Cheatsheet*, and the converted exams and exercises under
-  *Sources* - shows it rendered and read-only, figures in place, in
+  *Cheatsheet*, and, while the course shows its details, the
+  converted exams and exercises under *Sources* - shows it rendered and read-only, figures in place, in
   a tab. A topic's `progress.json` shows as a JSON code block and is
   refreshed after every step.
-* *Sources* also lists the PDF of every converted source, beside its
-  conversion. Clicking one shows it in a tab, every page at the
+* *Sources* lists the PDF of every source, and beside it its
+  conversion while the course shows its details. Clicking one shows it in a tab, every page at the
   tab's width.
 * At the bottom of the rail, a round button shows the first
   two letters of the user and opens the list of users. Choosing

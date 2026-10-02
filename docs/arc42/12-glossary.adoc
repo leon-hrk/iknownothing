@@ -71,9 +71,10 @@
   its users.
 
 | Progress
-| `topics/<topic>/progress.json`: whether the introduction to one
-  topic was given, and every Tier A and B task of it with whether it
-  is done and a note on how it went. A living artifact.
+| `topics/<topic>/progress.json`: the score of one topic - the
+  percentage of its Tier A and B tasks done -, whether its
+  introduction was given, and every Tier A and B task of it with
+  whether it is done and a note on how it went. A living artifact.
 
 | Reference solution
 | A solution the large model writes during ingestion for a Tier A or

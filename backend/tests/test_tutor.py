@@ -147,7 +147,7 @@ def test_completed_step_is_recorded_and_left_out(store):
     events = asyncio.run(collect(transcript))
 
     assert ("step", {"step": "Klausur 2023, Aufgabe 2b", "note": "Vorzeichen vergessen."}) in events
-    assert store.read_json("topics/laplace/progress.json") == {"introduction": False, "tasks": {
+    assert store.read_json("topics/laplace/progress.json") == {"score": 50, "introduction": False, "tasks": {
         "Klausur 2023, Aufgabe 2b": {"done": True, "note": "Vorzeichen vergessen."},
         "Übung 1, Aufgabe 1": {"done": False}}}
     assert step_start(transcript) == 3
@@ -164,7 +164,7 @@ def test_completed_step_is_recorded_and_left_out(store):
 
 def test_progress_and_unknown_step(store):
     topic = store.read_json("topics.json")[0]
-    assert progress(store, topic) == {"introduction": False, "tasks": {
+    assert progress(store, topic) == {"score": 0, "introduction": False, "tasks": {
         "Klausur 2023, Aufgabe 2b": {"done": False}, "Übung 1, Aufgabe 1": {"done": False}}}
 
     class UnknownStepAI(StepAI):

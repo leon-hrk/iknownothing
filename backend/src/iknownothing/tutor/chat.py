@@ -117,12 +117,13 @@ def _task_labels(topic: dict) -> list[str]:
 
 
 def _progress(text: str, topic: dict) -> dict:
-    """A topic's progress from its file's text: whether the introduction was given, and every task with whether it
-    is done and a note on how it went."""
+    """A topic's progress from its file's text: its score, the percentage of its tasks done, or None without tasks;
+    whether the introduction was given; and every task with whether it is done and a note on how it went."""
     progress = json.loads(text) if text else {}
-    tasks = progress.get("tasks", {})
-    return {"introduction": progress.get("introduction", False),
-            "tasks": {label: tasks.get(label, {"done": False}) for label in _task_labels(topic)}}
+    tasks = {label: progress.get("tasks", {}).get(label, {"done": False}) for label in _task_labels(topic)}
+    done = sum(t["done"] for t in tasks.values())
+    return {"score": round(100 * done / len(tasks)) if tasks else None,
+            "introduction": progress.get("introduction", False), "tasks": tasks}
 
 
 def progress(store: CourseStore, topic: dict) -> dict:
@@ -138,7 +139,7 @@ async def record_step(store: CourseStore, topic: dict, step: str, note: str) -> 
             p["introduction"] = True
         else:
             p["tasks"][step] = {"done": True, **({"note": note} if note else {})}
-        return json.dumps(p, ensure_ascii=False, indent=2) + "\n"
+        return json.dumps(_progress(json.dumps(p), topic), ensure_ascii=False, indent=2) + "\n"
     await store.update_text(f"{topic['dir']}/{PROGRESS}", change)
 
 

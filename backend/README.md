@@ -43,7 +43,7 @@ Open chats are stored per topic; a chat records each completed step in the topic
 | `POST /api/courses/<course>/files` | multipart `notes`, `exams`, `exercises`: adds the PDFs the course lacks, replaces its notes, and starts the ingestion; 422 for a changed PDF of the same name, 409 while it is being ingested |
 | `POST /api/courses/<course>/ingestion` | starts the ingestion again, from the steps whose results are missing; 409 while one runs |
 | `DELETE /api/courses/<course>` | deletes the course with everything in it; 409 while it is being ingested |
-| `GET /api/courses/<course>` | topics in priority order, with their Markdown files, `progress.json`, and token usage. Usage: `input` (cached included), `cached`, `output` tokens, and approximate `eur` |
+| `GET /api/courses/<course>` | topics in priority order, with their score (percentage of tasks done, `null` without tasks), Markdown files, `progress.json`, and token usage. Usage: `input` (cached included), `cached`, `output` tokens, and approximate `eur` |
 | `GET /api/courses/<course>/files/<path>` | one course file |
 | `POST /api/courses/<course>/chat` | stores the chat with the reply; streams the reply as Server-Sent Events: `text`, `cheatsheet`, `task`, `step`, then `usage` with the reply's tokens and `messages` to append to the transcript, or `error`; a comment every 10 s while the model thinks |
 | `GET /api/courses/<course>/chat?topic=<slug>` | the open chat of a topic: `transcript` and `usage` |

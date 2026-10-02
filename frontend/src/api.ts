@@ -9,7 +9,8 @@ export const NO_USAGE: Usage = { input: 0, cached: 0, output: 0, eur: 0 };
 export const addUsage = (a: Usage, b: Usage): Usage =>
   ({ input: a.input + b.input, cached: a.cached + b.cached, output: a.output + b.output, eur: a.eur + b.eur });
 
-export type Topic = { slug: string; name: string; priority: string; files: string[]; usage: Usage };
+/** `score`: the percentage of the topic's tasks done, null for a topic without tasks to practise. */
+export type Topic = { slug: string; name: string; priority: string; score: number | null; files: string[]; usage: Usage };
 
 /** `sources`: the source PDFs, `sources/<type>/<file>.pdf`, and their Markdown conversions, `<file>.md`. */
 export type Course = { name: string; status: string; topics: Topic[]; files: string[]; sources: string[] };

@@ -45,7 +45,7 @@ def test_course_and_files(client, store):  # noqa: F811
     course = client.get("/api/courses/control").json()
     store.write_json("topics/laplace/progress.json", {"introduction": True})
     course = client.get("/api/courses/control").json()
-    assert course["topics"] == [{"slug": "laplace", "name": "Laplace", "priority": "high",
+    assert course["topics"] == [{"slug": "laplace", "name": "Laplace", "priority": "high", "score": 0,
                                  "files": ["topics/laplace/progress.json", "topics/laplace/topic.md"], "usage": {"input": 0, "cached": 0, "output": 0, "eur": 0.0}}]
     assert course["files"] == ["notes.md"]
     assert course["sources"] == ["sources/exams/2023.md", "sources/exercises/uebung1.md"]
