@@ -46,9 +46,6 @@ button {
 
 .app { display: flex; height: 100vh; }
 
-.rail { flex: none; width: 24px; display: flex; align-items: center; justify-content: center; background: var(--panel); border-left: 1px solid var(--line); color: var(--muted); font-size: 18px; }
-.rail:hover { color: var(--accent); background: var(--line); }
-
 .dock { flex: none; width: 48px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 7px 0 10px; background: var(--panel); border-right: 1px solid var(--line); }
 .menu, .avatar { display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); color: var(--muted); }
 .menu { width: 28px; height: 28px; border-radius: 6px; }
@@ -67,7 +64,7 @@ button {
 .sidebar ul ul { padding-left: 14px; }
 .row { display: flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 6px; }
 /* Text too long for its line fades out instead of ending in an ellipsis. */
-.row > button:not(.caret), .row > span.muted, .file, header .title {
+.row > button:not(.caret), .row > span.muted, .file {
   mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
 }
 .row > button:not(.caret), .row > span.muted, .file { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
@@ -78,9 +75,9 @@ button {
 .caret.high { color: var(--high); }
 .caret.medium { color: var(--medium); }
 
-main, .document { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.document { border-left: 1px solid var(--line); }
-header { display: flex; align-items: center; min-height: 42px; padding: 10px 16px; border-bottom: 1px solid var(--line); font-weight: 600; overflow: hidden; white-space: nowrap; }
+.workspace { flex: 1; min-width: 0; overflow: clip; }
+.panel { display: flex; flex-direction: column; height: 100%; outline: none; }
+header { display: flex; align-items: center; min-height: 35px; padding: 6px 16px; border-bottom: 1px solid var(--line); font-weight: 600; overflow: hidden; white-space: nowrap; }
 .hint { color: var(--muted); padding: 24px; }
 
 .chat { display: flex; flex-direction: column; flex: 1; min-height: 0; }
@@ -97,12 +94,11 @@ header { display: flex; align-items: center; min-height: 42px; padding: 10px 16p
 .composer button { border: 1px solid var(--line); border-radius: 8px; padding: 4px 12px; color: var(--text); }
 
 .composer { display: flex; gap: 8px; padding: 12px max(16px, calc(50% - 380px)) 16px; }
-main > header { display: flex; align-items: center; gap: 16px; }
-header .title { display: block; flex: 1; min-width: 0; overflow: hidden; }
-main > header .tokens { font-weight: 400; }
-main > header .end { font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--error); border: 1px solid var(--error); border-radius: 6px; padding: 0 10px; }
-main > header .end:hover:not(:disabled) { background: var(--error); color: var(--bg); }
-main > header .end:disabled { opacity: 0.4; cursor: default; }
+.bar { justify-content: flex-end; gap: 16px; min-height: 0; padding: 6px 16px; border-bottom: none; }
+.bar .tokens { font-weight: 400; }
+.bar .end { font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--error); border: 1px solid var(--error); border-radius: 6px; padding: 0 10px; }
+.bar .end:hover:not(:disabled) { background: var(--error); color: var(--bg); }
+.bar .end:disabled { opacity: 0.4; cursor: default; }
 .tokens.stacked { display: flex; flex-direction: column; line-height: 1.5; }
 .tokens { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 li.usage { padding: 3px 6px 3px 26px; }
@@ -111,7 +107,7 @@ li.usage { padding: 3px 6px 3px 26px; }
 .composer textarea:focus { outline: none; border-color: var(--accent); }
 .composer button:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: var(--bg); }
 
-.reader { flex: 1; overflow-y: auto; padding: 16px max(16px, calc(50% - 380px)); }
+.reader { overflow-y: auto; padding: 16px max(16px, calc(50% - 380px)); }
 .pdf-page { margin-bottom: 12px; }
 .pdf .react-pdf__Page { box-shadow: 0 1px 4px rgb(0 0 0 / 0.2); }
 
@@ -134,3 +130,27 @@ li.usage { padding: 3px 6px 3px 26px; }
 .actions button { border: 1px solid var(--line); border-radius: 8px; padding: 6px 14px; }
 .actions button:hover { border-color: var(--accent); }
 .actions .primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+
+/* The tabs and groups in the colors of the app, light and dark. */
+:root .dockview-theme-light {
+  color-scheme: light dark;
+  --dv-group-view-background-color: var(--bg);
+  --dv-tabs-and-actions-container-background-color: var(--panel);
+  --dv-tabs-and-actions-container-font-size: 13px;
+  --dv-tabs-and-actions-container-height: 35px;
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--panel);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--panel);
+  --dv-tab-divider-color: var(--line);
+  --dv-activegroup-visiblepanel-tab-color: var(--text);
+  --dv-activegroup-hiddenpanel-tab-color: var(--muted);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--muted);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--muted);
+  --dv-separator-border: var(--line);
+  --dv-active-sash-color: var(--accent);
+  --dv-edge-dock-indicator-color: var(--accent);
+  --dv-drag-over-background-color: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+:root .dockview-theme-light .dv-tabs-and-actions-container { border-bottom: 1px solid var(--line); }
+.workspace .hint { text-align: center; }

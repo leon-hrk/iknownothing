@@ -174,8 +174,8 @@ During ingestion the topics are data, not Markdown. Ingestion renders
   the chat resolves them against the course's files.
 * The tutor links a task it poses from the sources, and a solution it
   shows from them, to the first PDF page of the passage, as a relative
-  link with `#page=N`. The chat opens such a link in the document
-  column instead of following it.
+  link with `#page=N`. The chat opens such a link in a tab beside
+  the chat instead of following it.
 
 === Security
 
@@ -212,7 +212,8 @@ The frontend lists all users; the student picks themselves, and the
 backend sets the cookie `ikn_user` (`HttpOnly`, `SameSite=Strict`)
 with the user's name. Every API request except listing and choosing
 users requires it and is served for the user it names. Switching the
-user ends an open chat like opening another chat does. There is no
+user shows that user's courses and tabs; their open chats stay stored.
+There is no
 authentication: whoever reaches the application can choose any user
 (chapter 11).
 

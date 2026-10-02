@@ -193,7 +193,7 @@ chooses *End session* and confirms; its chat is then cleared.
   in the chat, and its label links to the PDF page where the task
   stands. A solution shown from the sources links to the page where
   the solution stands. Clicking such a link opens the PDF at that page
-  in the document column.
+  in a tab beside the chat.
 * Tier B tasks are offered alongside Tier A ones. The tutor shows the
   reference solution when the student asks for it, and the student
   rates themselves in the chat.
@@ -226,13 +226,15 @@ chooses *End session* and confirms; its chat is then cleared.
 
 ==== User Interface
 
-A classic AI chat app: a collapsible course tree on the left, one
-large chat on the right. The student never has to learn a special
-interface - they open a course and ask a question.
+A classic AI chat app: a collapsible course tree on the left, the
+chat on the right. The student never has to learn a special
+interface - they open a course and ask a question. Like in a code
+editor, everything the student opens is a tab, and tabs can be
+arranged side by side.
 
 ....
 +-----------------------------+------------------------------------------+
-| iknownothing            [+] | Control Theory                           |
+| iknownothing            [+] | Control Theory x | Observers x |         |
 +-----------------------------+------------------------------------------+
 |                             |                                          |
 | v Control Theory            |                    +-------------------+ |
@@ -260,40 +262,43 @@ interface - they open a course and ask a question.
 +-----------------------------+------------------------------------------+
 ....
 
-* *Courses* are the top level. Clicking one opens a new course-level
+* *Courses* are the top level. Clicking one opens the course-level
   chat and reveals everything that belongs to it.
 * *Topics* are sorted by exam priority; the arrow in front of a topic
   is red for high, orange for medium, and grey for low priority.
-  Clicking one opens a new
+  Clicking one opens its
   topic chat; expanding it lists the files of its topic directory.
-* The title line of the open chat holds, on the right, its token
+* The *workspace* right of the tree holds tabs in groups. A chat or
+  file opens as a tab right of the active tab, in the active group;
+  an open one is only shown. Dragging a tab onto another group's tab
+  bar moves it there, dropping it on an edge of a group splits the
+  group, and the borders between groups can be dragged. Chats in
+  hidden tabs keep streaming. The arrangement is restored after a
+  reload, per user.
+* A bar above each chat holds, on the right, its token
   usage and the *End session* button. The button asks for
   confirmation, then ends the session: for a topic, `progress.md` is
   updated, and the chat is cleared.
-* The *main area* is an ordinary chat. Planning, tutoring, and
+* A chat tab is an ordinary chat. Planning, tutoring, and
   quizzing all happen there.
 * Token usage is shown as input (↑) tokens, cached input included and
   the cached share named, output (↓) tokens, and the approximate cost
-  in euros: in the title line for the open session, and on three lines in
+  in euros: in the bar of each chat for its session, and on three lines in
   an expanded topic for all its chats and finalizations and in an
   expanded course for the whole course, its course-level chats and
   all its topics together.
 * Clicking a Markdown file - the files of a topic, *Notes*,
   *Cheatsheet*, and the converted exams and exercises under
   *Sources* - shows it rendered and read-only, figures in place, in
-  the *document column* beside the chat, each taking half the width. A closed
-  document column opens for it.
+  a tab.
 * *Sources* also lists the PDF of every converted source, beside its
-  conversion. Clicking one shows it in the document column, every
-  page at the column's width.
+  conversion. Clicking one shows it in a tab, every page at the
+  tab's width.
 * A narrow column left of the course tree holds a button that hides
-  and shows the tree. An arrow on the right edge closes and opens the
-  document column; opened before any file, it shows the *Cheatsheet*
-  of the current course.
+  and shows the tree.
 * At the bottom of the narrow column, a round button shows the first
   two letters of the user and opens the list of users. Choosing
-  another user shows that user's courses; an open chat is ended as
-  when opening another chat, after the same warning.
+  another user shows that user's courses and tabs.
 
 ==== Out of Scope
 

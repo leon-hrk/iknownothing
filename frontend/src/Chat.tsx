@@ -4,7 +4,7 @@ import { type Block, chat, fileUrl, type Message, type Usage } from "./api";
 import Markdown from "./Markdown";
 
 export type OpenChat = {
-  id: number; course: string; topic: string | null; title: string; transcript: Message[]; usage: Usage;
+  id: number; course: string; topic: string | null; transcript: Message[]; usage: Usage;
 };
 
 type Part = { kind: "thinking" | "text" | "note"; text: string };
@@ -70,11 +70,15 @@ export default function Chat({ open, update, onCheatsheet, onUsage, onBusy, onOp
   const [tool, setTool] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
-  const end = useRef<HTMLDivElement>(null);
+  const messages = useRef<HTMLDivElement>(null);
 
   useEffect(() => () => abort.current?.abort(), []);
   useEffect(() => onBusy(!!live), [live, onBusy]);
-  useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [open.transcript, live]);
+  // scrolls only the messages: scrollIntoView would also scroll the workspace, out of reach of the student
+  useEffect(() => {
+    const el = messages.current!;
+    el.scrollTop = el.scrollHeight;
+  }, [open.transcript, live]);
 
   async function send(text: string) {
     if (!text.trim() || live) return;
@@ -125,7 +129,7 @@ export default function Chat({ open, update, onCheatsheet, onUsage, onBusy, onOp
 
   return (
     <div className="chat">
-      <div className="messages" aria-busy={!!live}>
+      <div className="messages" ref={messages} aria-busy={!!live}>
         {open.transcript.length === 0 && (
           <p className="hint">
             {open.topic ? "Ask for an introduction, or say \"quiz me\"." : "Ask where you stand and what to work on next."}
@@ -139,7 +143,6 @@ export default function Chat({ open, update, onCheatsheet, onUsage, onBusy, onOp
           <div className="pending">{tool ? DOING[tool] ?? `Running ${tool}…` : "Thinking…"}</div>
         )}
         {error && <div className="error">{error}</div>}
-        <div ref={end} />
       </div>
       <form className="composer" onSubmit={(e) => { e.preventDefault(); send(input); }}>
         <textarea

@@ -1,25 +1,25 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import {
+  type DockviewApi, DockviewReact, type DockviewReadyEvent, type SerializedDockview, themeLight,
+} from "dockview-react";
+import "dockview-react/dist/styles/dockview.css";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
-  addUsage, chooseUser, type Course, type CourseSummary, currentUser, endChat, fileUrl, getChat, getCourse, listCourses,
-  listUsers, type Message, NO_USAGE, readFile, UNAUTHORIZED, type Usage,
+  addUsage, chooseUser, type Course, type CourseSummary, currentUser, getCourse, listCourses, listUsers,
+  UNAUTHORIZED,
 } from "./api";
-import Chat, { type OpenChat, type OpenLink } from "./Chat";
-import Markdown from "./Markdown";
+import {
+  CHEATSHEET, ChatPanel, type ChatParams, chatId, DocPanel, type DocParams, docId, type Shell, ShellContext, Watermark,
+} from "./Panels";
 import Tokens from "./Tokens";
 
-const Pdf = lazy(() => import("./Pdf"));
-
-/** A Markdown file or a source PDF of a course, shown in the document column; a PDF at `page`. */
-type Doc = { course: string; path: string; title: string; page?: number };
+const PANELS = { chat: ChatPanel, doc: DocPanel };
 
 /** What a reload restores, remembered per user in the browser. */
 type View = {
-  chat: { course: string; topic: string | null; title: string } | null;
-  doc: Doc | null;
+  layout: SerializedDockview | null;
   expanded: string[];
   sidebar: boolean;
-  panel: boolean;
 };
 
 const viewKey = (user: string) => `ikn-view:${user}`;
@@ -39,63 +39,6 @@ function saveView(user: string, view: View) {
   } catch {
     // the view is then not restored after a reload
   }
-}
-
-let nextId = 1;
-
-const CHEATSHEET = "cheatsheet.md";
-
-function Document({ doc, version }: { doc: Doc; version: number }) {
-  const [text, setText] = useState<string | null>(null);
-  const dir = doc.path.slice(0, doc.path.lastIndexOf("/") + 1);
-  const pdf = doc.path.endsWith(".pdf");
-  useEffect(() => {
-    if (pdf) return;
-    let current = true;
-    readFile(doc.course, doc.path)
-      .then((t) => current && setText(t))
-      .catch((e) => current && setText(doc.path === CHEATSHEET ? "" : `*${e.message}*`));
-    return () => { current = false; };
-  }, [doc, version]);
-  return (
-    <aside className="document">
-      <header><span className="title" title={doc.title}>{doc.title}</span></header>
-      <div className="reader">
-        {pdf ? (
-          <Suspense fallback={<div className="pending">…</div>}>
-            <Pdf key={doc.path} url={fileUrl(doc.course, doc.path)} page={doc.page} opened={doc} />
-          </Suspense>
-        )
-          : text === null ? <div className="pending">…</div>
-          : text.trim() ? <Markdown text={text} resolve={(src) => fileUrl(doc.course, `${dir}${src}`)} />
-          : <p className="muted">{doc.path === CHEATSHEET ? "No cheatsheet yet." : "This file is empty."}</p>}
-      </div>
-    </aside>
-  );
-}
-
-/** Asks before the open chat is ended. */
-function EndDialog({ topic, onEnd, onCancel }: { topic: boolean; onEnd: () => void; onCancel: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onCancel]);
-  return (
-    <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-      <div className="dialog" role="alertdialog" aria-labelledby="end-title">
-        <h2 id="end-title">End this session?</h2>
-        <p>
-          {topic ? "Your progress is updated from this chat, then the chat is cleared." : "The chat is cleared."}
-          {" "}Your cheatsheet is kept.
-        </p>
-        <div className="actions">
-          <button onClick={onCancel}>Keep chatting</button>
-          <button className="primary" autoFocus onClick={onEnd}>End session</button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function UserMenu({ user, users, onChoose }: { user: string | null; users: string[]; onChoose: (name: string) => void }) {
@@ -143,22 +86,18 @@ export default function App() {
   return <Workspace key={user ?? ""} user={user} users={users} onSwitch={setUser} />;
 }
 
+
 function Workspace({ user, users, onSwitch }: { user: string | null; users: string[]; onSwitch: (name: string) => void }) {
   const [saved] = useState(() => loadView(user));
   const [courses, setCourses] = useState<CourseSummary[]>([]);
   const [details, setDetails] = useState<Record<string, Course>>({});
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(saved?.expanded));
-  const [chat, setChat] = useState<OpenChat | null>(null);
-  const [doc, setDoc] = useState<Doc | null>(saved?.doc ?? null);
-  const [cheatsheetVersion, setCheatsheetVersion] = useState(0);
+  const [layout, setLayout] = useState(saved?.layout ?? null);
+  const [active, setActive] = useState<string | null>(null);
+  const [cheatsheet, setCheatsheet] = useState(0);
   const [sidebar, setSidebar] = useState(saved?.sidebar ?? true);
-  const [panel, setPanel] = useState(saved?.panel ?? false);
-  const [busy, setBusy] = useState(false);
-  const [ending, setEnding] = useState(false);
-  const chatRef = useRef(chat);
-  chatRef.current = chat;
-  const opening = useRef(0);
-  const restoring = useRef(saved?.chat ?? null);
+  const api = useRef<DockviewApi | null>(null);
+  const workspace = useRef<HTMLDivElement>(null);
 
   const load = useCallback((course: string) => {
     getCourse(course).then((c) => setDetails((d) => ({ ...d, [course]: c })));
@@ -170,17 +109,31 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
       setCourses(cs);
       for (const c of cs) if (saved?.expanded.includes(c.name)) load(c.name);
     });
-    if (saved?.chat) {
-      openChat(saved.chat.course, saved.chat.topic, saved.chat.title);
-      restoring.current = saved.chat;
-    }
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-    const open = chat ? { course: chat.course, topic: chat.topic, title: chat.title } : restoring.current;
-    saveView(user, { chat: open, doc, expanded: [...expanded], sidebar, panel });
-  }, [user, chat?.course, chat?.topic, chat?.title, doc, expanded, sidebar, panel]);
+    if (user) saveView(user, { layout, expanded: [...expanded], sidebar });
+  }, [user, layout, expanded, sidebar]);
+
+  // dockview follows a resize a frame late; laid out at once, the tabs do not jump when the tree is toggled
+  useLayoutEffect(() => {
+    const el = workspace.current;
+    if (el) api.current?.layout(el.clientWidth, el.clientHeight);
+  }, [sidebar]);
+
+  function onReady({ api: dock }: DockviewReadyEvent) {
+    api.current = dock;
+    if (user && saved?.layout) {
+      try {
+        dock.fromJSON(saved.layout);
+      } catch {
+        dock.clear();
+      }
+    }
+    setActive(dock.activePanel?.id ?? null);
+    dock.onDidActivePanelChange(({ panel }) => setActive(panel?.id ?? null));
+    dock.onDidLayoutChange(() => setLayout(dock.toJSON()));
+  }
 
   function toggle(key: string) {
     setExpanded((s) => {
@@ -194,62 +147,53 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
     chooseUser(name).then(() => onSwitch(name));
   }
 
-  function openChat(course: string, topic: string | null, title: string) {
-    const id = opening.current = nextId++;
-    restoring.current = null;
-    getChat(course, topic).then(({ transcript, usage }) => {
-      if (opening.current !== id) return;
-      setChat({ id, course, topic, title, transcript, usage });
-      setExpanded((s) => new Set(s).add(course));
-      load(course);
-    });
+  /** Shows the tab `id`, opening it right of the active tab if it is not open. */
+  function show(id: string, component: keyof typeof PANELS, title: string, params: ChatParams | DocParams) {
+    const dock = api.current;
+    const panel = dock?.getPanel(id);
+    if (panel) return panel.api.setActive();
+    const group = dock?.activeGroup;
+    const index = group?.activePanel ? group.panels.indexOf(group.activePanel) + 1 : undefined;
+    dock?.addPanel({ id, component, title, params, position: group ? { referenceGroup: group, index } : undefined });
   }
 
-  function end() {
-    setEnding(false);
-    if (!chat) return;
-    const { id, course, topic } = chat;
-    endChat(course, topic).then(() => {
-      setChat((c) => (c?.id === id ? { ...c, id: nextId++, transcript: [], usage: NO_USAGE } : c));
-    });
-  }
-
-  const update = useCallback((id: number, transcript: Message[]) => {
-    setChat((c) => (c?.id === id ? { ...c, transcript } : c));
-  }, []);
-
-  const onCheatsheet = useCallback(() => {
-    setCheatsheetVersion((v) => v + 1);
-    if (chatRef.current) load(chatRef.current.course);
-  }, [load]);
-
-  const onUsage = useCallback((id: number, usage: Usage) => {
-    setChat((c) => (c?.id === id ? { ...c, usage: addUsage(c.usage, usage) } : c));
-    if (chatRef.current) load(chatRef.current.course);
-  }, [load]);
-
-  function openDoc(d: Doc) {
-    setDoc(d);
-    setPanel(true);
-  }
-
-  const openLink = useCallback<OpenLink>((course, href) => {
+  const openLink = useCallback((from: string, course: string, href: string) => {
+    const dock = api.current;
+    if (!dock) return;
     const [path, fragment] = href.split("#");
     const page = Number(/^page=(\d+)$/.exec(fragment ?? "")?.[1]) || undefined;
-    setDoc({ course, path, title: `${course} · ${path.replace(/^sources\//, "")}`, page });
-    setPanel(true);
+    const id = docId(course, path);
+    const params: DocParams = { course, path, page, opened: Date.now() };
+    const panel = dock.getPanel(id);
+    if (panel) {
+      panel.api.updateParameters(params);
+      panel.api.setActive();
+      return;
+    }
+    // beside the chat: in another group, or in a new one on its right
+    const chat = dock.getPanel(from);
+    const other = dock.groups.find((g) => g !== chat?.group);
+    const title = path.split("/").at(-1)!;
+    if (other) dock.addPanel({ id, component: "doc", title, params, position: { referenceGroup: other } });
+    else if (chat) dock.addPanel({ id, component: "doc", title, params, position: { referencePanel: chat, direction: "right" } });
+    else dock.addPanel({ id, component: "doc", title, params });
   }, []);
 
-  function togglePanel() {
-    if (!panel && !doc && chat) setDoc({ course: chat.course, path: CHEATSHEET, title: `${chat.course} · Cheatsheet` });
-    setPanel((p) => !p);
-  }
+  const onCheatsheet = useCallback((course: string) => {
+    setCheatsheet((v) => v + 1);
+    load(course);
+  }, [load]);
+
+  const shell = useMemo<Shell>(
+    () => ({ user, cheatsheet, load, onCheatsheet, openLink }),
+    [user, cheatsheet, load, onCheatsheet, openLink],
+  );
 
   function file(course: string, path: string, label: string, title: string) {
-    const active = panel && doc?.course === course && doc.path === path;
+    const id = docId(course, path);
     return (
-      <li key={path} className={active ? "active" : ""}>
-        <button className="file" onClick={() => openDoc({ course, path, title })}>{label}</button>
+      <li key={path} className={active === id ? "active" : ""}>
+        <button className="file" onClick={() => show(id, "doc", title, { course, path })}>{label}</button>
       </li>
     );
   }
@@ -276,7 +220,7 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
                   <ul>
                     {paths.filter((p) => p.split("/")[1] === type).map((p) => {
                       const name = p.split("/").at(-1)!;
-                      return file(course, p, name, `${course} · ${type}/${name}`);
+                      return file(course, p, name, name);
                     })}
                   </ul>
                 )}
@@ -302,29 +246,31 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
           {courses.map((c) => {
             const detail = details[c.name];
             const open = expanded.has(c.name);
-            const active = chat?.course === c.name && chat.topic === null;
+            const id = chatId(c.name, null);
             return (
               <li key={c.name}>
-                <div className={active ? "row active" : "row"}>
+                <div className={active === id ? "row active" : "row"}>
                   <button className="caret" onClick={() => { toggle(c.name); if (!detail) load(c.name); }}>
                     {open ? "▾" : "▸"}
                   </button>
                   {c.status === "ready"
-                    ? <button onClick={() => openChat(c.name, null, c.name)}>{c.name}</button>
+                    ? <button onClick={() => show(id, "chat", c.name, { course: c.name, topic: null })}>{c.name}</button>
                     : <span className="muted">{c.name} ({c.status})</span>}
                 </div>
                 {open && detail && (
                   <ul>
                     {detail.topics.map((t) => {
                       const key = `${c.name}/${t.slug}`;
-                      const topicActive = chat?.course === c.name && chat.topic === t.slug;
+                      const topicId = chatId(c.name, t.slug);
                       return (
                         <li key={t.slug}>
-                          <div className={topicActive ? "row active" : "row"}>
+                          <div className={active === topicId ? "row active" : "row"}>
                             <button className={`caret ${t.priority}`} title={`${t.priority} priority`} onClick={() => toggle(key)}>
                               {expanded.has(key) ? "▾" : "▸"}
                             </button>
-                            <button title={t.name} onClick={() => openChat(c.name, t.slug, `${c.name} · ${t.name}`)}>{t.name}</button>
+                            <button title={t.name} onClick={() => show(topicId, "chat", t.name, { course: c.name, topic: t.slug })}>
+                              {t.name}
+                            </button>
                           </div>
                           {expanded.has(key) && (
                             <ul>
@@ -351,29 +297,12 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
           })}
         </ul>
       </nav>
-      <main>
-        <header>
-          <span className="title" title={chat?.title}>{chat?.title ?? ""}</span>
-          {chat && <Tokens usage={chat.usage} />}
-          {chat && (
-            <button className="end" disabled={busy || !chat.transcript.length} onClick={() => setEnding(true)}>
-              End session
-            </button>
-          )}
-        </header>
-        {chat && (
-          <Chat key={chat.id} open={chat} update={(t) => update(chat.id, t)} onCheatsheet={onCheatsheet}
-            onUsage={(u) => onUsage(chat.id, u)} onBusy={setBusy} onOpen={openLink} />
-        )}
-        {!chat && <p className="hint">{user ? "Open a course to start." : "Choose a user at the bottom left."}</p>}
-      </main>
-      {panel && doc && <Document doc={doc} version={doc.path === CHEATSHEET ? cheatsheetVersion : 0} />}
-      {(chat || doc) && (
-        <button className="rail" title={panel ? "Hide document" : "Show document"} onClick={togglePanel}>
-          {panel ? "›" : "‹"}
-        </button>
-      )}
-      {ending && chat && <EndDialog topic={chat.topic !== null} onEnd={end} onCancel={() => setEnding(false)} />}
+      <ShellContext.Provider value={shell}>
+        <div className="workspace" ref={workspace}>
+          <DockviewReact components={PANELS} watermarkComponent={Watermark} onReady={onReady}
+            theme={themeLight} defaultRenderer="always" disableFloatingGroups />
+        </div>
+      </ShellContext.Provider>
     </div>
   );
 }

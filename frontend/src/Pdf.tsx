@@ -6,7 +6,7 @@ import "react-pdf/dist/Page/TextLayer.css";
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 
 /** Every page of the PDF at `url`, as wide as the reader. Scrolls to `page` whenever `opened` changes. */
-export default function Pdf({ url, page, opened }: { url: string; page?: number; opened: object }) {
+export default function Pdf({ url, page, opened }: { url: string; page?: number; opened: unknown }) {
   const ref = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [width, setWidth] = useState(0);
@@ -19,7 +19,9 @@ export default function Pdf({ url, page, opened }: { url: string; page?: number;
   }, []);
   const ready = width > 0 && ratio > 0;
   useEffect(() => {
-    if (ready && page) pageRefs.current[page - 1]?.scrollIntoView({ block: "start" });
+    const target = ready && page ? pageRefs.current[page - 1] : null;
+    const reader = ref.current?.parentElement;
+    if (target && reader) reader.scrollTop += target.getBoundingClientRect().top - reader.getBoundingClientRect().top;
   }, [ready, opened]);
   return (
     <div className="pdf" ref={ref}>

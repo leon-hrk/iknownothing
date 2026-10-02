@@ -16,8 +16,8 @@ include::diagrams/building-blocks-level1.puml[]
 
 | Frontend
 | React single-page application in the browser: user choice, course
-  tree, chat, Markdown viewer. Talks to the backend over the HTTP API
-  only.
+  tree, and a workspace of tabs and split groups for chats, Markdown
+  files, and PDFs. Talks to the backend over the HTTP API only.
 
 | Backend
 | FastAPI application serving the HTTP API. Handles requests, streams

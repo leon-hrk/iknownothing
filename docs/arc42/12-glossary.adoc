@@ -86,8 +86,8 @@
   Tier B task. Not evidence, and never presented as assessed.
 
 | Session
-| One chat: course-level or topic-level. Exists only in the browser
-  while it is open; one is open at a time.
+| One chat: course-level or topic-level. Stored until the student
+  ends it; several can be open in tabs at once.
 
 | Source
 | A course PDF in `sources/`.

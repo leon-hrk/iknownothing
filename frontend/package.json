@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "dockview-react": "^8.4.0",
     "katex": "^0.18.9",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
