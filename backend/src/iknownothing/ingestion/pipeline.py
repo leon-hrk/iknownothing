@@ -10,14 +10,16 @@ from typing import Any
 from iknownothing.ai_client import AIClient, load_prompt
 from iknownothing.course_store import CourseStore
 from iknownothing.ingestion.conversion import FIGURE, blocks, convert, markdown_path, page_of
-from iknownothing.ingestion.render import render_topic
+from iknownothing.ingestion.passages import source_content
+from iknownothing.ingestion.render import render_solutions, render_topic
 from iknownothing.ingestion.topics import (
-    ASSIGNMENT_SCHEMA, GROUPING_SCHEMA, OTHER, UNIT_SCHEMA, Topic, apply_grouping, apply_unit, priority,
-    range_numbers, sorted_by_priority, validate_grouping, validate_unit,
+    ASSIGNMENT_SCHEMA, GROUPING_SCHEMA, OTHER, SOLUTIONS_SCHEMA, UNIT_SCHEMA, Topic, apply_grouping, apply_unit,
+    priority, range_numbers, sorted_by_priority, validate_grouping, validate_solutions, validate_unit,
 )
 from iknownothing.ocr_client import OCRClient
 
 RESULT = "ingestion/topics.json"
+SOLUTIONS = "solutions.md"
 MAX_ATTEMPTS = 3
 PARALLEL = 6
 
@@ -130,6 +132,28 @@ async def ingest(store: CourseStore, ai: AIClient, ocr: OCRClient, report: Repor
         store.write_text(f"topics/{t['slug']}/topic.md",
                          render_topic({**t, "sources": entry["sources"]}, len(exam_units)))
     store.write_json("topics.json", listed)
+
+    solved = set(result.get("solved", []))
+    pending = [e for e in listed if e["slug"] not in solved and any(s["tier"] != "C" for s in e["sources"])]
+    if pending:
+        report(f"solutions: {len(pending)} topics")
+        limit = asyncio.Semaphore(PARALLEL)
+
+        async def solve(entry: dict) -> dict:
+            async with limit:
+                return await _solve(store, ai, entry, result["language"])
+
+        replies = await asyncio.gather(*(solve(e) for e in pending), return_exceptions=True)
+        for entry, reply in zip(pending, replies):
+            if not isinstance(reply, BaseException):
+                if reply["solutions"]:
+                    store.write_text(f"{entry['dir']}/{SOLUTIONS}", render_solutions(reply["solutions"]))
+                solved.add(entry["slug"])
+        result = {**result, "solved": sorted(solved)}
+        store.write_json(RESULT, result)
+        for reply in replies:
+            if isinstance(reply, BaseException):
+                raise reply
     report(f"ready: {len(topics)} topics, language {result['language']}")
 
 
@@ -214,6 +238,16 @@ async def _extract(store: CourseStore, ai: AIClient, files: list[str], topics: l
     return await _request_valid(
         ai, "topic_extraction", documents, data, UNIT_SCHEMA,
         lambda r: validate_unit(r, known, block_counts),
+    )
+
+
+async def _solve(store: CourseStore, ai: AIClient, entry: dict, language: str) -> dict:
+    """Sends a topic's sources, figures included, and its topic.md; receives solutions for the tasks without one."""
+    labels = {s["task"] for s in entry["sources"] if s["tier"] != "C"}
+    data = f"<language>{language}</language>\n\n<topic>\n{store.read_text(f'{entry['dir']}/topic.md')}\n</topic>"
+    return await _request_valid(
+        ai, "solution_writing", await source_content(store, entry), data, SOLUTIONS_SCHEMA,
+        lambda r: validate_solutions(r, labels),
     )
 
 

@@ -96,7 +96,7 @@ def main() -> None:
                                                "defaults to the course name")
     source.add_argument("--from", dest="source", metavar="USER", help="user whose ingested course to copy")
     p.set_defaults(func=course_add)
-    p = course.add_parser("ingest", help="resume an ingestion that failed")
+    p = course.add_parser("ingest", help="run the ingestion steps whose results are missing, e.g. after a failure")
     p.add_argument("user")
     p.add_argument("course")
     p.set_defaults(func=course_ingest)

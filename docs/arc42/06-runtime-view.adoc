@@ -41,9 +41,18 @@ include::diagrams/runtime-ingestion.puml[]
    with the topics and receives new topics and the tasks that move;
    Ingestion checks, applies, and writes `ingestion/topics.json`.
 .. *Topic files.* No AI call: the priority of every topic is computed,
-   then `topic.md` of every topic is written, then `topics.json`.
-. The command prints the token usage and the pages converted. The course is ready: the
-  student's course list shows it as such, and it opens.
+   then `topic.md` of every topic is written, then `topics.json`. The
+   course is ready from here on: the student's course list shows it
+   as such, and it opens.
+.. *Solutions.* Every topic with Tier A or B tasks that has no
+   reference solutions yet goes in a request of its own, several at
+   once, with its tasks as a topic-level chat gets them - figures
+   included - its `topic.md`, and the course language. The reply
+   holds a reference solution for every task whose blocks hold none;
+   Ingestion checks the task labels, writes
+   `topics/<topic>/solutions.md` if there is any, and records the
+   topic as done in `ingestion/topics.json`.
+. The command prints the token usage and the pages converted.
 
 Topic extraction applies the fallback strategies (chapter 1)
 according to the number of past exams in the course.
@@ -63,8 +72,10 @@ call. A course that is not ingested is not copied.
 * When retries are exhausted or the error is permanent (invalid API
   key, exhausted credit), the command fails with the reason. `course
   ingest <user> <course>` resumes at the first missing result.
-* `topics.json` exists only for a fully ingested course; until then
-  the course is listed as not ingested and does not open.
+* `topics.json` is written once the topics are complete; until then
+  the course is listed as not ingested and does not open. A course
+  whose reference solutions failed opens without them for the topics
+  not done; `course ingest` writes them.
 
 [[runtime-chat-message]]
 === Chat Message

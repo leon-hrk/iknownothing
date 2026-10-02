@@ -2,6 +2,8 @@
 
 from iknownothing.ingestion.topics import Topic
 
+FIGURE_CAUTION = "**Values read from a figure.** They may be misread; check them against the figure."
+
 
 def _source_line(source: dict) -> str:
     where = ", ".join(f"{r['file']} p. {r['pages']}" for r in source["blocks"])
@@ -23,4 +25,17 @@ def render_topic(topic: Topic, exam_count: int) -> str:
         out.extend(["## Sources", "", *map(_source_line, reachable), ""])
     if out_of_reach:
         out.extend(["## Out of Reach", "", *map(_source_line, out_of_reach), ""])
+    return "\n".join(out)
+
+
+def render_solutions(solutions: list[dict]) -> str:
+    """The reference solutions written for the tasks the material has no solution for."""
+    out = ["# Solutions", "",
+           "Worked out by the AI from the course material, for the tasks the material has no solution for. "
+           "They are not the course's solutions.", ""]
+    for s in solutions:
+        out.extend([f"## {s['task']}", ""])
+        if s["values_from_figure"]:
+            out.extend([f"> {FIGURE_CAUTION}", ""])
+        out.extend([s["solution"].strip(), ""])
     return "\n".join(out)

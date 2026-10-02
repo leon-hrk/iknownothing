@@ -19,6 +19,33 @@
 // Consequences::
 // What this costs us and what it rules out.
 
+[[adr-reference-solutions]]
+=== 17. Ingestion writes reference solutions for tasks without one
+
+Status:: accepted
+
+Context::
+Past exams often come without solutions, and they are the tasks that
+matter most for the exam. The chat runs on the small model
+(<<adr-model-tiers>>), which grades reliably against a reference but
+derives multi-step solutions less reliably; a wrong solution it works
+out itself teaches the student a wrong method with confidence.
+Working a solution out in the chat also costs output tokens every
+time the task is posed.
+
+Decision::
+The last step of ingestion has the large model write a reference
+solution for every Tier A or B task whose blocks hold none, one
+request per topic with the topic's tasks and the solutions the
+material has. The chat grades against it.
+
+Consequences::
+The cost is paid once per course and shared with every student the
+course is handed to with `--from`, not per message. The reference can
+still be wrong; it is marked as written by the AI, and the tutor
+checks it when the student's answer differs. A course is ready before
+its reference solutions are written.
+
 [[adr-units]]
 === 16. Topic extraction reads the course unit by unit
 
@@ -251,8 +278,9 @@ interaction and make up most of a course's cost.
 Ingestion and tutoring have a cost limit (chapter 10).
 
 Decision::
-Ingestion request types run on a large model; chat requests run on
-a small model. The model of each tier is configuration.
+Ingestion request types - topic extraction, task assignment, task
+grouping, and solution writing - run on a large model; chat requests
+run on a small model. The model of each tier is configuration.
 
 Consequences::
 The large model reads the whole material once; every repeated

@@ -39,7 +39,7 @@ courses/control-theory/
 ```sh
 docker compose exec backend iknownothing course add alice control-theory
 docker compose exec backend iknownothing course add bob control-theory --from alice
-docker compose exec backend iknownothing course ingest alice control-theory   # resumes a failed ingestion
+docker compose exec backend iknownothing course ingest alice control-theory   # runs the ingestion steps whose results are missing
 docker compose exec backend iknownothing course remove alice control-theory
 ```
 

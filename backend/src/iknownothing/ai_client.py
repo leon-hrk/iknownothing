@@ -18,6 +18,7 @@ TIERS = {
     "topic_extraction": "large",
     "task_assignment": "large",
     "task_grouping": "large",
+    "solution_writing": "large",
     "planning": "small",
     "tutoring": "small",
 }
@@ -58,7 +59,7 @@ class AIClient:
         model = self._models[TIERS[request_type]]
         async with self._client.beta.messages.stream(
             model=model,
-            max_tokens=64000,
+            max_tokens=128000,
             system=load_prompt(request_type),
             messages=messages,
             thinking=_thinking(model),

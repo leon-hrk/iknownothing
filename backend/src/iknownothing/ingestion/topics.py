@@ -93,6 +93,25 @@ GROUPING_SCHEMA = {
 }
 
 
+SOLUTIONS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "solutions": {"type": "array", "items": {
+            "type": "object",
+            "properties": {
+                "task": {"type": "string"},
+                "solution": {"type": "string"},
+                "values_from_figure": {"type": "boolean"},
+            },
+            "required": ["task", "solution", "values_from_figure"],
+            "additionalProperties": False,
+        }},
+    },
+    "required": ["solutions"],
+    "additionalProperties": False,
+}
+
+
 def range_numbers(text: str) -> list[int]:
     """`"3"` or `"3-5"` as a list of 1-based numbers."""
     m = RANGE.match(text.replace(" ", ""))
@@ -164,6 +183,19 @@ def validate_grouping(reply: dict, known: set[str], count: int) -> list[str]:
             errors.append(f"task {m['index']}: unknown topic {m['topic']!r}")
     for slug in new - {m["topic"] for m in reply["tasks"]}:
         errors.append(f"new topic {slug!r} has no task")
+    return errors
+
+
+def validate_solutions(reply: dict, labels: set[str]) -> list[str]:
+    """Checks that every solution names a Tier A or B task of the topic, once."""
+    errors = []
+    seen = set()
+    for s in reply["solutions"]:
+        if s["task"] not in labels:
+            errors.append(f"unknown task {s['task']!r}; the Tier A and B tasks are: {', '.join(sorted(labels))}")
+        if s["task"] in seen:
+            errors.append(f"task {s['task']!r} appears more than once")
+        seen.add(s["task"])
     return errors
 
 

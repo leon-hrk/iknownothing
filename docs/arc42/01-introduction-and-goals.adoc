@@ -94,6 +94,12 @@ The course language is detected here.
   orders the topic tree by it; the course-level chat takes the
   priorities and tasks from it; a topic-level chat takes the block
   ranges of its tasks from it.
+. *Solutions*: every Tier A or B task whose blocks hold no solution -
+  often a past exam task - gets a *reference solution*, written by the
+  large model from the topic's tasks, in the method and notation of
+  its solved ones. A topic with such tasks gets
+  `topics/<topic>/solutions.md`, marked as written by the AI and not
+  the course's (see <<adr-reference-solutions>>).
 
 Source priority for what a topic is: *past exams > exercises*. For
 solution style and notation it *inverts*: exercise solutions, then
@@ -101,7 +107,8 @@ past exam solutions, outrank the exam question itself. The exam says
 what is asked; the solutions say how it is to be written down.
 
 A topic-level chat reads the topic's tasks - their blocks, with the
-figures in them as images - and nothing else of the material.
+figures in them as images - and its reference solutions, and nothing
+else of the material.
 
 ==== Course Lifecycle
 
@@ -183,6 +190,7 @@ chooses *End session* and confirms; its chat is then cleared.
 * Context loaded into a topic-level session:
 ** The topic's artifact (`topics/<topic>/topic.md`)
 ** The topic's tasks, as Markdown with their figures
+** The topic's reference solutions (`topics/<topic>/solutions.md`)
 ** The course cheatsheet (`cheatsheet.md`)
 ** The topic's progress (`topics/<topic>/progress.json`)
 ** The course notes (`notes.md`)
@@ -214,9 +222,14 @@ chooses *End session* and confirms; its chat is then cleared.
 * Solutions always follow the professor's conventions and notation,
   as the solutions in the sources show them.
 * A task without a solution in its sources - often a past exam task -
-  gets a solution the tutor works out from the solved tasks of the
-  topic, in their method and notation. The tutor tells the student
-  that it is its own solution, not the course's.
+  is graded against its reference solution. The tutor tells the
+  student once that it was written by the AI, not by the course, and
+  checks it carefully when the student's answer differs: the
+  reference can be wrong. When the reference rests on values read
+  from a figure, the tutor tells the student to read them carefully
+  and does not count differing values as wrong. A task without any
+  reference gets a solution the tutor works out from the solved tasks
+  of the topic, in their method and notation, marked as its own.
 * *Language*: the tutor responds in the language of the course
   materials, detected during ingestion - the language the exam is
   written in. It is not configurable.

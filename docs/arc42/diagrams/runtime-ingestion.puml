@@ -39,6 +39,13 @@ opt other-tasks has tasks
 end
 
 ingestion -> store : topics/<topic>/topic.md,\ntopics.json
+
+par every topic with Tier A or B tasks not done yet
+  ingestion -> ai : its tasks with figures,\ntopic.md, language
+  ai --> ingestion : reference solutions for\nthe tasks without one
+  ingestion -> store : topics/<topic>/solutions.md
+end
+ingestion -> store : ingestion/topics.json
 deactivate ingestion
 courses --> operator : steps, token usage
 @enduml

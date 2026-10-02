@@ -38,6 +38,7 @@ data/<user>/<course>/
 │   └── topics.json         topics as extracted, and the files read
 └── topics/<topic>/
     ├── topic.md            topic artifact
+    ├── solutions.md        reference solutions
     ├── progress.json       living artifact
     ├── usage.json          tokens of the topic's chats
     └── chat.json           open topic-level chat
@@ -59,7 +60,7 @@ The files fall into three classes:
 
 | Derived
 | `sources/*/<file>.md`, `sources/*/<file>/`, `topics.json`,
-  `topic.md`, `ingestion/`
+  `topic.md`, `solutions.md`, `ingestion/`
 | Ingestion, once
 
 | Student state
@@ -169,7 +170,8 @@ During ingestion the topics are data, not Markdown. Ingestion renders
   in a `<source>` element with its ID, label, and tier, and in it
   every block range in a `<passage>` element with its PDF and pages.
   Figures in the blocks go as images where they stand, each after its
-  Markdown image line with the path from the course directory.
+  Markdown image line with the path from the course directory. The
+  topic's `solutions.md` follows in a `<solutions>` element.
 * A task the tutor poses from the sources shows the figures of its
   statement: the tutor copies their image lines into the reply, and
   the chat resolves them against the course's files.
@@ -177,6 +179,35 @@ During ingestion the topics are data, not Markdown. Ingestion renders
   shows from them, to the first PDF page of the passage, as a relative
   link with `#page=N`. The chat opens such a link in a tab beside
   the chat instead of following it.
+
+=== Reference Solutions
+
+The last step of ingestion writes a reference solution for every
+Tier A or B task whose blocks hold no solution (see
+<<adr-reference-solutions>>).
+
+* One request per topic sends its sources exactly as a topic-level
+  chat gets them, figures included, with its `topic.md` and the
+  course language. The model finds the tasks without a solution
+  itself and returns a solution for each with its task label, in the
+  method, notation, and solution style of the topic's solved tasks,
+  and whether it rests on values read from a figure.
+* Ingestion checks that every label names a Tier A or B task of the
+  topic, once, and repeats the request with the errors otherwise. It
+  writes `topics/<topic>/solutions.md` - each solution under its task
+  label, below a line saying the AI wrote them, not the course; a
+  solution resting on values read from a figure is marked as such -
+  and
+  records the topic in `ingestion/topics.json`. A topic whose tasks
+  all have solutions gets no file. A resumed ingestion writes only
+  the topics not recorded.
+* The tutor grades such a task against its reference solution and
+  tells the student once that the AI wrote it. When the student's
+  answer differs, it checks both, since the reference can be wrong.
+  When it poses a task whose reference is marked as resting on values
+  from a figure, it tells the student to read the values carefully,
+  and it does not count values that differ from the reference as
+  wrong.
 
 === Security
 
@@ -245,6 +276,7 @@ Every request type runs on one of two model tiers (see
 | Topic extraction | large
 | Task assignment (exercise sheets) | large
 | Task grouping | large
+| Solution writing | large
 | Tutoring (topic-level chat), including grading | small
 | Planning (course-level chat) | small
 |===
@@ -252,11 +284,12 @@ Every request type runs on one of two model tiers (see
 A model with adaptive thinking decides how much to think; a model
 without it thinks up to a fixed budget per request.
 
-Topic extraction asks for its reply in a JSON schema. A request the
-model declines is rerun server-side on a fallback model.
+Ingestion requests ask for their reply in a JSON schema. A request
+the model declines is rerun server-side on a fallback model.
 
 Chat requests put the context of the chat first - for a topic-level
-chat, its tasks before everything else - and mark it for
+chat, its tasks and reference solutions before everything else - and
+mark it for
 prompt caching, since every message sends it again.
 
 The AI Client logs model and token usage of every request with user,

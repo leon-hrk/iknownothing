@@ -106,7 +106,15 @@ class FakeAI:
         self.fail_on = fail_on
 
     async def request_json(self, request_type, messages, schema):
-        texts = [b["text"] for b in messages[0]["content"]]
+        texts = [b["text"] for b in messages[0]["content"] if b["type"] == "text"]
+        if request_type == "solution_writing":
+            topic = texts[0].split('"')[1].split("/")[0]
+            self.calls.append((request_type, topic))
+            assert texts[-1].startswith("<language>German</language>\n\n<topic>\n# ")
+            if topic == "laplace":
+                return {"solutions": [{"task": "Klausur 2023, Aufgabe 1", "solution": "\\(x = 1\\)",
+                                       "values_from_figure": True}]}
+            return {"solutions": []}
         if request_type == "task_grouping":
             self.calls.append((request_type, None))
             assert texts[0].startswith('<tasks>\n<task index="1" label="Übung 1, Aufgabe 2" tier="A">\n'
@@ -170,7 +178,12 @@ def test_ingest_unit_by_unit_and_resume(store):
 
     ai, ocr = FakeAI(), FakeOCR()
     asyncio.run(ingest(store, ai, ocr, report=lambda s: None))
-    assert ai.calls == [("task_assignment", "exercises/uebung2.md"), ("task_grouping", None)] and ocr.calls == 0
+    assert ai.calls[:2] == [("task_assignment", "exercises/uebung2.md"), ("task_grouping", None)] and ocr.calls == 0
+    assert sorted(ai.calls[2:]) == [("solution_writing", t) for t in ("laplace", "other-tasks", "registers", "sketch")]
+    assert store.read_text("topics/laplace/solutions.md").endswith(
+        "## Klausur 2023, Aufgabe 1\n\n> **Values read from a figure.** They may be misread; check them against the "
+        "figure.\n\n\\(x = 1\\)\n")
+    assert not store.exists("topics/sketch/solutions.md")
 
     listed = store.read_json("topics.json")
     assert [(t["slug"], t["priority"]) for t in listed] == [

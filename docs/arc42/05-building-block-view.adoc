@@ -68,8 +68,9 @@ include::diagrams/building-blocks-level2.puml[]
 
 | Ingestion
 | The ingestion pipeline: conversion, topic extraction, topic files,
-  and topic list. Splits conversions into blocks, for itself and the
-  Tutor. Runs in the operator's command; each step writes its result
+  topic list, and reference solutions. Splits conversions into blocks
+  and assembles a topic's passages with their figures, for itself and
+  the Tutor. Runs in the operator's command; each step writes its result
   through the Course Store before the next one starts and is printed
   as it starts (see <<runtime-ingestion>>).
 | -
@@ -105,5 +106,6 @@ include::diagrams/building-blocks-level2.puml[]
 ==== Prompts
 
 Every prompt is a Markdown file in the backend source tree, one per
-task (topic extraction, planning, tutoring). The AI Client loads them by name; other modules never build
-prompt text inline.
+task (topic extraction, task assignment, task grouping, solution
+writing, planning, tutoring). The AI Client loads them by name; other
+modules never build prompt text inline.

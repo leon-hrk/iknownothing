@@ -64,6 +64,11 @@ def test_context(store):
     assert "cache_control" in ctx[2] and "cache_control" not in ctx[0]
     assert "<cheatsheet>\n(empty)\n</cheatsheet>" in ctx[-1]["text"]
 
+    store.write_text("topics/laplace/solutions.md", "# Solutions")
+    ctx = asyncio.run(topic_context(store, "laplace", "German"))
+    assert ctx[3] == {"type": "text", "text": "<solutions>\n# Solutions\n</solutions>\n\n", "cache_control": {"type": "ephemeral"}}
+    assert "cache_control" not in ctx[2]
+
 
 def block(type, **kw):
     return SimpleNamespace(type=type, to_dict=lambda exclude_none: {"type": type, **kw}, **kw)

@@ -1,16 +1,13 @@
 """Course-level and topic-level chats: context assembly, chat tools, and the reply loop."""
 
-import asyncio
-import base64
 import json
 from collections.abc import AsyncIterator
-from pathlib import PurePosixPath
 from typing import Any
 
 from iknownothing.ai_client import AIClient
 from iknownothing.course_store import CourseStore
-from iknownothing.ingestion.conversion import FIGURE, blocks
-from iknownothing.ingestion.topics import range_numbers
+from iknownothing.ingestion.passages import source_content
+from iknownothing.ingestion.pipeline import SOLUTIONS
 from iknownothing.tutor.cheatsheet import CheatsheetError, set_entry
 
 MAX_TOOL_ROUNDS = 8
@@ -112,47 +109,6 @@ def topic_entry(store: CourseStore, slug: str) -> dict:
     raise TutorError(f"no such topic: {slug!r}")
 
 
-def _image(rel: str, data: bytes) -> dict:
-    media_type = "image/png" if rel.endswith(".png") else "image/jpeg"
-    return {"type": "image",
-            "source": {"type": "base64", "media_type": media_type, "data": base64.standard_b64encode(data).decode("ascii")}}
-
-
-async def source_content(store: CourseStore, topic: dict) -> list[dict]:
-    """Every source of the topic with its blocks as text and the figures in them as images, where they stand, each
-    after its Markdown image line with the path from the course directory. Each passage names its PDF and pages."""
-    converted: dict[str, list[str]] = {}
-    content: list[dict] = []
-    text: list[str] = []
-
-    def flush() -> None:
-        if text:
-            content.append({"type": "text", "text": "".join(text)})
-            text.clear()
-
-    for s in topic["sources"]:
-        text.append(f'<source id="{s["id"]}" task="{s["task"]}" tier="{s["tier"]}" fit="{s["fit"]}">\n')
-        for r in s["blocks"]:
-            rel = f"sources/{r['file']}"
-            if rel not in converted:
-                converted[rel] = blocks(await asyncio.to_thread(store.read_text, rel))
-            pdf = f"sources/{r['file'].removesuffix('.md')}.pdf"
-            text.append(f'<passage file="{r["file"]}" blocks="{r["blocks"]}" pdf="{pdf}" pages="{r["pages"]}">\n')
-            for n in range_numbers(r["blocks"]):
-                block, pos = converted[rel][n - 1], 0
-                for m in FIGURE.finditer(block):
-                    figure = str(PurePosixPath(rel).parent / m[1])
-                    text.append(f"{block[pos:m.start()]}![]({figure})\n")
-                    flush()
-                    content.append(_image(figure, await asyncio.to_thread(store.read_bytes, figure)))
-                    pos = m.end()
-                text.append(f"{block[pos:]}\n\n")
-            text.append("</passage>\n")
-        text.append("</source>\n\n")
-    flush()
-    return content
-
-
 def _optional(store: CourseStore, rel: str, missing: str = "(empty)") -> str:
     return store.read_text(rel) if store.exists(rel) else missing
 
@@ -188,9 +144,13 @@ async def record_step(store: CourseStore, topic: dict, step: str, note: str) -> 
 
 
 async def topic_context(store: CourseStore, slug: str, language: str) -> list[dict]:
-    """The context of a topic-level chat: its sources first, marked for caching, then the course files."""
+    """The context of a topic-level chat: its sources and the solutions written for them first, marked for caching,
+    then the course files."""
     topic = topic_entry(store, slug)
     sources = await source_content(store, topic)
+    solutions = f"{topic['dir']}/{SOLUTIONS}"
+    if store.exists(solutions):
+        sources.append({"type": "text", "text": f"<solutions>\n{store.read_text(solutions)}\n</solutions>\n\n"})
     if sources:
         sources[-1]["cache_control"] = {"type": "ephemeral"}
     text = (
