@@ -55,7 +55,8 @@ def test_context(store):
     assert [b["type"] for b in ctx] == ["text", "image", "text", "text"]
     assert ctx[0]["text"] == (
         '<source id="laplace/1" task="Klausur 2023, Aufgabe 2b" tier="A" fit="clear">\n'
-        '<passage file="exams/2023.md" blocks="5-7">\n# Aufgabe 2\n\nGegeben:\n\n')
+        '<passage file="exams/2023.md" blocks="5-7">\n# Aufgabe 2\n\nGegeben:\n\n'
+        '![](sources/exams/2023/p2-img-0.jpeg)\n')
     assert base64.b64decode(ctx[1]["source"]["data"]) == b"jpeg"
     assert ctx[2]["text"] == (
         '\n\n</passage>\n<passage file="exams/2023.md" blocks="9">\nb) Teil b\n\n</passage>\n</source>\n\n'

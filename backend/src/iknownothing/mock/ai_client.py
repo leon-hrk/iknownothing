@@ -26,7 +26,7 @@ THINKING_SECONDS = 2.0
 CHUNK_SECONDS = 0.005
 
 TOOLS = "tools"
-TASK = {"task": "Sample exam, task 1", "tier": "A"}
+TASK = {"task": "Sample exam, task 2a", "tier": "A"}
 
 _BLOCKS = {"thinking": ThinkingBlock, "text": TextBlock, "tool_use": ToolUseBlock}
 
@@ -65,7 +65,9 @@ def rounds(message: str) -> list[list[dict]]:
              {"type": "tool_use", "id": "mock-pose-task", "name": "pose_task", "input": TASK}],
             [_thinking("**Stating the task**\n\nThe task is marked as Tier A, so I will grade the answer. "
                        "Now I state it and wait."),
-             _text("**Sample exam, task 1.** Compute the Laplace transform of $f(t) = t e^{-2t}$.\n")],
+             _text("**Sample exam, task 2a.** The figure shows a finite automaton over the alphabet "
+                   "\\(\\{0, 1\\}\\).\n\n![](sources/exams/sample/p1-img-0.png)\n\n"
+                   "Which words of length two does it accept?\n")],
         ]
     return [[_thinking(f"**Answering `/{name}`**\n\nThe student sent `/{name}`. As the mock AI client, I answer "
                        "with the sample reply of that name, streamed in small chunks."),

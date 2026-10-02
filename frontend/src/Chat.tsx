@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from "react";
 
-import { type Block, chat, type Message, type Usage } from "./api";
+import { type Block, chat, fileUrl, type Message, type Usage } from "./api";
 import Markdown from "./Markdown";
 
 export type OpenChat = {
@@ -32,7 +32,10 @@ function note(b: Block): string | null {
   return null;
 }
 
-const Turn = memo(function Turn({ message }: { message: Message }) {
+/** Course files referenced in a reply, e.g. the figures of a posed task. */
+const courseFiles = (course: string) => (src: string) => fileUrl(course, src);
+
+const Turn = memo(function Turn({ message, course }: { message: Message; course: string }) {
   if (message.role === "user") {
     const text = blocks(message.content).filter((b) => b.type === "text").map((b) => b.text as string).join("\n");
     return text ? <div className="user">{text}</div> : null;
@@ -40,7 +43,7 @@ const Turn = memo(function Turn({ message }: { message: Message }) {
   return (
     <>
       {blocks(message.content).map((b, i) => {
-        if (b.type === "text") return <Markdown key={i} text={b.text as string} />;
+        if (b.type === "text") return <Markdown key={i} text={b.text as string} resolve={courseFiles(course)} />;
         if (b.type === "thinking") return b.thinking ? <Thinking key={i} text={b.thinking as string} open={false} /> : null;
         const n = note(b);
         return n ? <div key={i} className="note">{n}</div> : null;
@@ -122,8 +125,8 @@ export default function Chat({ open, update, onCheatsheet, onUsage, onBusy }: {
             {open.topic ? "Ask for an introduction, or say \"quiz me\"." : "Ask where you stand and what to work on next."}
           </p>
         )}
-        {open.transcript.map((m, i) => <Turn key={i} message={m} />)}
-        {live?.map((p, i) => p.kind === "text" ? <Markdown key={i} text={p.text} />
+        {open.transcript.map((m, i) => <Turn key={i} message={m} course={open.course} />)}
+        {live?.map((p, i) => p.kind === "text" ? <Markdown key={i} text={p.text} resolve={courseFiles(open.course)} />
           : p.kind === "thinking" ? <Thinking key={i} text={p.text} open />
           : <div key={i} className="note">{p.text}</div>)}
         {live && (tool || live.at(-1)?.kind !== "text") && (

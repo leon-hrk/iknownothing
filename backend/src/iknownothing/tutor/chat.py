@@ -84,7 +84,8 @@ def _image(rel: str, data: bytes) -> dict:
 
 
 async def source_content(store: CourseStore, topic: dict) -> list[dict]:
-    """Every source of the topic with its blocks as text and the figures in them as images, where they stand."""
+    """Every source of the topic with its blocks as text and the figures in them as images, where they stand, each
+    after its Markdown image line with the path from the course directory."""
     converted: dict[str, list[str]] = {}
     content: list[dict] = []
     text: list[str] = []
@@ -104,9 +105,9 @@ async def source_content(store: CourseStore, topic: dict) -> list[dict]:
             for n in range_numbers(r["blocks"]):
                 block, pos = converted[rel][n - 1], 0
                 for m in FIGURE.finditer(block):
-                    text.append(block[pos:m.start()])
-                    flush()
                     figure = str(PurePosixPath(rel).parent / m[1])
+                    text.append(f"{block[pos:m.start()]}![]({figure})\n")
+                    flush()
                     content.append(_image(figure, await asyncio.to_thread(store.read_bytes, figure)))
                     pos = m.end()
                 text.append(f"{block[pos:]}\n\n")
