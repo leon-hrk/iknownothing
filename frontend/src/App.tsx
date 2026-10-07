@@ -30,6 +30,11 @@ const SPLIT = { tree: TreePanel, workspace: WorkspacePanel };
 const TREE_WIDTH = 280;
 const TREE_MIN = 160;
 
+/** The space between the boxes of the tree and of the groups of tabs, in px; as in `styles.css`. */
+const GAP = 4;
+
+const THEME = { ...themeLight, gap: GAP, dndTabIndicator: "line" as const };
+
 /** The label of the divider above the topics of each priority. */
 const PRIORITY: Record<string, string> = { high: "Priority 1", medium: "Priority 2", low: "Priority 3" };
 
@@ -186,12 +191,16 @@ const CourseTabs = memo(function CourseTabs({ course, visible, layout, onReady, 
     onActive(course, dock.activePanel?.id ?? null);
     dock.onDidActivePanelChange(({ panel }) => onActive(course, panel?.id ?? null));
     dock.onDidLayoutChange(() => onLayout(course, dock.toJSON()));
+    // a tab dropped on the top or bottom edge of the whole workspace does not span it; a group still splits
+    dock.onWillShowOverlay((e) => {
+      if (e.kind === "edge" && (e.position === "top" || e.position === "bottom")) e.preventDefault();
+    });
   }
 
   return (
     <div className="course-tabs" ref={ref} hidden={!visible}>
       <DockviewReact components={PANELS} watermarkComponent={Watermark} onReady={ready}
-        theme={themeLight} defaultRenderer="always" disableFloatingGroups />
+        theme={THEME} defaultRenderer="always" disableFloatingGroups />
     </div>
   );
 });
@@ -267,6 +276,8 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
   }, [user, course, layouts, expanded, shown, sidebar, width]);
 
   const treeVisible = sidebar && !!course;
+  const treeShown = useRef(treeVisible);
+  treeShown.current = treeVisible;
   useLayoutEffect(() => {
     split.current?.getPanel("tree")?.api.setVisible(treeVisible);
   }, [treeVisible]);
@@ -285,7 +296,8 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
     // dockview follows a resize a frame late; laid out at once, the tabs do not jump while the tree is resized
     space.api.onDidDimensionsChange(({ width: w, height: h }) => {
       const name = shownCourse.current;
-      if (name) apis.current[name]?.layout(w, h);
+      // less the space before the tabs: half the gap beside the tree, all of it beside the rail
+      if (name) apis.current[name]?.layout(w - (treeShown.current ? GAP / 2 : GAP), h);
     });
   }
 
@@ -516,7 +528,7 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
   );
 
   return (
-    <div className="app">
+    <div className={treeVisible ? "app" : "app tree-hidden"}>
       <div className="dock">
         <div className="rail">
           {courses.map((c) => (

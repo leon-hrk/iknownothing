@@ -10,6 +10,9 @@
   --high: #dc2626;
   --medium: #ea580c;
   --hover: color-mix(in srgb, var(--line) 55%, var(--panel));
+  --canvas: color-mix(in srgb, var(--line) 60%, var(--panel));
+  --gap: 4px;
+  --radius: 10px;
   font-family: system-ui, sans-serif;
   font-size: 15px;
   color: var(--text);
@@ -28,6 +31,7 @@
     --error: #f87171;
     --high: #f87171;
     --medium: #fb923c;
+    --canvas: #141210;
   }
 }
 
@@ -148,11 +152,11 @@ li.usage { padding: 3px 6px 3px 26px; }
   --dv-inactivegroup-visiblepanel-tab-color: var(--muted);
   --dv-inactivegroup-hiddenpanel-tab-color: var(--muted);
   --dv-separator-border: var(--line);
-  --dv-active-sash-color: var(--accent);
+  --dv-sash-color: transparent;
+  --dv-active-sash-color: transparent;
   --dv-edge-dock-indicator-color: var(--accent);
   --dv-drag-over-background-color: color-mix(in srgb, var(--accent) 20%, transparent);
 }
-.dockview-theme-light .dv-tab { transition: background-color 0.15s, color 0.15s; }
 .dockview-theme-light .dv-groupview > .dv-tabs-and-actions-container .dv-tabs-container > .dv-tab.dv-inactive-tab:hover {
   background-color: var(--hover);
   color: var(--text);
@@ -200,3 +204,95 @@ li.usage { padding: 3px 6px 3px 26px; }
 .divider { display: flex; align-items: center; gap: 8px; margin: 10px 6px 4px; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .divider::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
 .sidebar > ul > .divider:first-child { margin-top: 2px; }
+
+/* The tree and every group of tabs are boxes with round corners, the rail and the tree one box together. */
+.app { background: var(--canvas); }
+.dock { border: 1px solid var(--line); border-radius: var(--radius) 0 0 var(--radius); }
+.app.tree-hidden .dock { border-radius: var(--radius); }
+/* the sash of the hidden tree lies on the left edge of the tabs, so the whole space is there */
+.app.tree-hidden .workspace { margin-left: var(--gap); }
+/* nor is that sash cut off where it covers the border of the rail */
+.split > .dv-split-view-container { overflow: visible; }
+.sidebar { margin-right: calc(var(--gap) / 2); border: 1px solid var(--line); border-left: none; border-radius: 0 var(--radius) var(--radius) 0; }
+.workspace { margin-left: calc(var(--gap) / 2); }
+.dockview-theme-light .dv-dockview, .dockview-theme-light .dv-split-view-container { background: var(--canvas); }
+.dockview-theme-light .dv-groupview { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.dockview-theme-light .dv-render-overlay { border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px); overflow: hidden; }
+
+/* Tabs have round corners. The shown tab of a group is round at the top only and flares into the content below
+ * it at the bottom; its flares take the place of dockview's dividers between tabs, which are not shown. */
+.dockview-theme-light { --tab-radius: var(--radius); }
+.dockview-theme-light .dv-tabs-container .dv-tab { border-radius: var(--tab-radius); transition: background-color 0.15s, color 0.15s; }
+.dockview-theme-light .dv-tabs-container .dv-tab.dv-active-tab { border-radius: var(--tab-radius) var(--tab-radius) 0 0; }
+.dockview-theme-light .dv-tabs-container .dv-tab::before { display: none; }
+/* room for the flare of the last tab, which would make the tabs scroll */
+.dockview-theme-light .dv-tabs-container { padding-right: var(--tab-radius); }
+.dockview-theme-light .dv-tabs-container .dv-tab.dv-active-tab::before,
+.dockview-theme-light .dv-tabs-container .dv-tab.dv-active-tab::after {
+  content: "";
+  display: block;
+  position: absolute;
+  z-index: 1;
+  top: auto;
+  bottom: 0;
+  width: var(--tab-radius);
+  height: var(--tab-radius);
+  background: radial-gradient(circle at var(--at), transparent calc(var(--tab-radius) - 0.5px), var(--bg) var(--tab-radius));
+  outline: none !important;
+  pointer-events: none;
+}
+.dockview-theme-light .dv-tabs-container .dv-tab.dv-active-tab::before { --at: 0 0; left: calc(-1 * var(--tab-radius)); }
+.dockview-theme-light .dv-tabs-container .dv-tab.dv-active-tab::after { --at: 100% 0; left: auto; right: calc(-1 * var(--tab-radius)); }
+
+/* A tab dragged within the tabs is shown by a line where it would land: beside a tab, or behind the last one;
+ * with selectors that outweigh dockview's own. */
+.dockview-theme-light .dv-drop-target > .dv-drop-target-dropzone > .dv-drop-target-selection.dv-drop-target-selection-line,
+.dockview-theme-light .dv-void-container > .dv-drop-target-dropzone > .dv-drop-target-selection {
+  top: 20% !important;
+  width: 2px !important;
+  height: 60% !important;
+  border: none;
+  background: var(--accent);
+}
+/* centered on the border between two tabs, whichever of them it is shown on; dockview places it on the right
+ * side at a rounded offset */
+.dockview-theme-light .dv-drop-target-selection-line.dv-drop-target-left { left: -1px !important; }
+.dockview-theme-light .dv-drop-target-selection-line.dv-drop-target-right { left: calc(100% - 1px) !important; }
+.dockview-theme-light .dv-void-container > .dv-drop-target-dropzone > .dv-drop-target-selection {
+  left: calc(-1 * var(--tab-radius) - 1px) !important;
+}
+
+/* The space between two boxes can be dragged; a sash covers it and the borders on both sides of it, with a grip of
+ * three dots in its middle. On hover, its outline joins these borders with half circles at the ends. dockview
+ * centers a sash of 4px on the space; it is widened around that center, with selectors that outweigh dockview's
+ * own, which it adds after this sheet. */
+@property --grip { syntax: "<color>"; inherits: true; initial-value: transparent; }
+.dockview-theme-light .dv-split-view-container.dv-separator-border .dv-view::before { display: none; }
+.dockview-theme-light .dv-sash { --grip: var(--line); }
+.dockview-theme-light .dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash {
+  width: calc(var(--gap) + 2px);
+  margin-left: calc(1px - var(--gap) / 2);
+  border: 1px solid transparent;
+  border-radius: calc(var(--gap) / 2 + 1px);
+}
+.dockview-theme-light .dv-split-view-container.dv-vertical > .dv-sash-container > .dv-sash {
+  height: calc(var(--gap) + 2px);
+  margin-top: calc(1px - var(--gap) / 2);
+  border: 1px solid transparent;
+  border-radius: calc(var(--gap) / 2 + 1px);
+}
+.dockview-theme-light .dv-sash::after {
+  content: "";
+  position: absolute;
+  background: radial-gradient(circle, var(--grip) 1px, transparent 1.5px) center / var(--gap) 5px;
+}
+/* as wide as the space, so the dots are not drawn half a pixel off its center */
+.dockview-theme-light .dv-horizontal > .dv-sash-container > .dv-sash::after { inset: 50% 0 auto; height: 15px; translate: 0 -50%; background-size: var(--gap) 5px; background-repeat: repeat-y; }
+.dockview-theme-light .dv-vertical > .dv-sash-container > .dv-sash::after { inset: 0 auto 0 50%; width: 15px; translate: -50% 0; background-size: 5px var(--gap); background-repeat: repeat-x; }
+.dockview-theme-light .dv-split-view-container > .dv-sash-container > .dv-sash:is(:hover, :active) {
+  --grip: var(--accent);
+  border-color: var(--accent);
+  transition: border-color 0.1s ease-in-out 0.5s, --grip 0.1s ease-in-out 0.5s;
+}
+.dockview-theme-light .dv-split-view-container > .dv-sash-container > .dv-sash.dv-disabled { border-color: transparent; }
+.dockview-theme-light .dv-sash.dv-disabled::after { display: none; }
