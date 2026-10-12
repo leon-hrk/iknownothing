@@ -1,8 +1,12 @@
 import {
-  type DockviewApi, DockviewReact, type DockviewReadyEvent, type SerializedDockview, themeLight,
+  type DockviewApi, DockviewReact, type DockviewReadyEvent, LayoutPriority, Orientation, type SerializedDockview,
+  type SplitviewApi, SplitviewReact, type SplitviewReadyEvent, themeLight,
 } from "dockview-react";
 import "dockview-react/dist/styles/dockview.css";
-import { memo, type RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext, memo, type ReactNode, type RefObject, useCallback, useContext, useEffect, useLayoutEffect, useMemo,
+  useRef, useState,
+} from "react";
 
 import {
   addUsage, chooseUser, type Course, type CourseSummary, currentUser, deleteCourse, getCourse, listCourses,
@@ -10,11 +14,27 @@ import {
 } from "./api";
 import CourseDialog from "./CourseDialog";
 import {
-  CHEATSHEET, ChatPanel, type ChatParams, chatId, DocPanel, type DocParams, docId, type Shell, ShellContext, Watermark,
+  CHEATSHEET, ChatPanel, type ChatParams, chatId, DetailsContext, DocPanel, type DocParams, docId, type Shell,
+  ShellContext, Watermark,
 } from "./Panels";
 import Tokens from "./Tokens";
 
 const PANELS = { chat: ChatPanel, doc: DocPanel };
+
+/** The tree and the workspace, side by side in a split whose border can be dragged. */
+const SplitContext = createContext<{ tree: ReactNode; workspace: ReactNode }>(null!);
+const TreePanel = () => useContext(SplitContext).tree;
+const WorkspacePanel = () => useContext(SplitContext).workspace;
+const SPLIT = { tree: TreePanel, workspace: WorkspacePanel };
+
+/** The width of the tree in px: at first, and at least. */
+const TREE_WIDTH = 280;
+const TREE_MIN = 160;
+
+/** The space between the boxes of the tree and of the groups of tabs, in px; as in `styles.css`. */
+const GAP = 4;
+
+const THEME = { ...themeLight, gap: GAP, dndTabIndicator: "line" as const };
 
 /** The label of the divider above the topics of each priority. */
 const PRIORITY: Record<string, string> = { high: "Priority 1", medium: "Priority 2", low: "Priority 3" };
@@ -26,19 +46,22 @@ const scoreColor = (score: number) => `hsl(${score * 1.2} 70% 45%)`;
 const POLL = 3000;
 
 /** What a reload restores, remembered per user in the browser: the open course, the tabs of every course, the
- * expanded folders, the courses whose topics show their details, and whether the tree is shown. */
+ * expanded folders, the folded priorities, the courses and topics showing their details, whether the tree is shown,
+ * and its width. */
 type View = {
   course: string | null;
   layouts: Record<string, SerializedDockview>;
   expanded: string[];
+  folded: string[];
   details: string[];
   sidebar: boolean;
+  width: number;
 };
 
 const viewKey = (user: string) => `ikn-view:${user}`;
 
 function loadView(user: string | null): View {
-  const empty: View = { course: null, layouts: {}, expanded: [], details: [], sidebar: true };
+  const empty: View = { course: null, layouts: {}, expanded: [], folded: [], details: [], sidebar: true, width: TREE_WIDTH };
   if (!user) return empty;
   try {
     return { ...empty, ...JSON.parse(localStorage.getItem(viewKey(user)) ?? "{}") };
@@ -95,25 +118,19 @@ function UserMenu({ user, users, onChoose }: { user: string | null; users: strin
   );
 }
 
-/** The menu of a course icon, opened by a right click. */
-function CourseMenu({ x, y, summary, details, onDetails, onAdd, onRetry, onDelete, onClose }: {
-  x: number; y: number; summary: CourseSummary; details: boolean;
-  onDetails: () => void; onAdd: () => void; onRetry: () => void; onDelete: () => void; onClose: () => void;
-}) {
+type MenuItem = { label: string; act: () => void; disabled?: boolean; danger?: boolean };
+
+/** A menu at the pointer, opened by a right click. */
+function ContextMenu({ x, y, items, onClose }: { x: number; y: number; items: MenuItem[]; onClose: () => void }) {
   const ref = useRef<HTMLUListElement>(null);
   useDismiss(ref, true, onClose);
-  const running = summary.ingestion !== null;
-  const item = (label: string, act: () => void, disabled = false, danger = false) => (
-    <li>
-      <button className={danger ? "danger" : ""} disabled={disabled} onClick={() => { onClose(); act(); }}>{label}</button>
-    </li>
-  );
   return (
     <ul className="context-menu" ref={ref} style={{ left: x, top: y }}>
-      {item(details ? "Hide details" : "Show hidden details", onDetails)}
-      {item("Add files", onAdd, running)}
-      {(summary.error !== null || summary.status !== "ready") && item("Retry ingestion", onRetry, running)}
-      {item("Delete course", onDelete, running, true)}
+      {items.map(({ label, act, disabled, danger }) => (
+        <li key={label}>
+          <button className={danger ? "danger" : ""} disabled={disabled} onClick={() => { onClose(); act(); }}>{label}</button>
+        </li>
+      ))}
     </ul>
   );
 }
@@ -141,11 +158,9 @@ function DeleteDialog({ course, onDelete, onCancel }: { course: string; onDelete
 
 /** The tabs of one course, from its saved `layout`. It stays mounted while another course is shown, so its chats keep
  * streaming. */
-const CourseTabs = memo(function CourseTabs({ course, visible, width, layout, onReady, onLayout, onActive }: {
+const CourseTabs = memo(function CourseTabs({ course, visible, layout, onReady, onLayout, onActive }: {
   course: string;
   visible: boolean;
-  /** Changes when the space for the tabs does, e.g. when the tree is toggled. */
-  width: unknown;
   layout: SerializedDockview | undefined;
   onReady: (course: string, api: DockviewApi) => void;
   onLayout: (course: string, layout: SerializedDockview) => void;
@@ -154,11 +169,11 @@ const CourseTabs = memo(function CourseTabs({ course, visible, width, layout, on
   const ref = useRef<HTMLDivElement>(null);
   const api = useRef<DockviewApi | null>(null);
 
-  // dockview follows a resize a frame late; laid out at once, the tabs do not jump when the tree is toggled
+  // dockview follows a resize a frame late; laid out at once, the tabs do not jump when they are shown
   useLayoutEffect(() => {
     const el = ref.current;
     if (visible && el) api.current?.layout(el.clientWidth, el.clientHeight);
-  }, [visible, width]);
+  }, [visible]);
 
   function ready({ api: dock }: DockviewReadyEvent) {
     api.current = dock;
@@ -173,12 +188,16 @@ const CourseTabs = memo(function CourseTabs({ course, visible, width, layout, on
     onActive(course, dock.activePanel?.id ?? null);
     dock.onDidActivePanelChange(({ panel }) => onActive(course, panel?.id ?? null));
     dock.onDidLayoutChange(() => onLayout(course, dock.toJSON()));
+    // a tab dropped on the top or bottom edge of the whole workspace does not span it; a group still splits
+    dock.onWillShowOverlay((e) => {
+      if (e.kind === "edge" && (e.position === "top" || e.position === "bottom")) e.preventDefault();
+    });
   }
 
   return (
     <div className="course-tabs" ref={ref} hidden={!visible}>
       <DockviewReact components={PANELS} watermarkComponent={Watermark} onReady={ready}
-        theme={themeLight} defaultRenderer="always" disableFloatingGroups />
+        theme={THEME} defaultRenderer="always" disableFloatingGroups disableTabsOverflowList />
     </div>
   );
 });
@@ -205,15 +224,21 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
   const [course, setCourse] = useState<string | null>(saved.course);
   const [visited, setVisited] = useState<string[]>(saved.course ? [saved.course] : []);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(saved.expanded));
+  const [folded, setFolded] = useState<Set<string>>(() => new Set(saved.folded));
+  // a course by its name, a topic by the id of its chat
   const [shown, setShown] = useState<Set<string>>(() => new Set(saved.details));
   const [layouts, setLayouts] = useState(saved.layouts);
   const [actives, setActives] = useState<Record<string, string | null>>({});
   const [cheatsheet, setCheatsheet] = useState(0);
   const [sidebar, setSidebar] = useState(saved.sidebar);
-  const [menu, setMenu] = useState<{ course: string; x: number; y: number } | null>(null);
+  const [width, setWidth] = useState(saved.width);
+  const [menu, setMenu] = useState<{ course: string; topic?: string; x: number; y: number } | null>(null);
   const [dialog, setDialog] = useState<{ course?: string } | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const apis = useRef<Record<string, DockviewApi>>({});
+  const split = useRef<SplitviewApi | null>(null);
+  const shownCourse = useRef(course);
+  shownCourse.current = course;
 
   const load = useCallback((name: string) => {
     getCourse(name).then((c) => setDetails((d) => ({ ...d, [name]: c })));
@@ -246,8 +271,36 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
   }, [ingesting, refresh]);
 
   useEffect(() => {
-    if (user) saveView(user, { course, layouts, expanded: [...expanded], details: [...shown], sidebar });
-  }, [user, course, layouts, expanded, shown, sidebar]);
+    if (user) saveView(user, {
+      course, layouts, expanded: [...expanded], folded: [...folded], details: [...shown], sidebar, width,
+    });
+  }, [user, course, layouts, expanded, folded, shown, sidebar, width]);
+
+  const treeVisible = sidebar && !!course;
+  const treeShown = useRef(treeVisible);
+  treeShown.current = treeVisible;
+  useLayoutEffect(() => {
+    split.current?.getPanel("tree")?.api.setVisible(treeVisible);
+  }, [treeVisible]);
+
+  function splitReady({ api }: SplitviewReadyEvent) {
+    split.current = api;
+    const tree = api.addPanel({
+      id: "tree", component: "tree", size: saved.width, minimumSize: TREE_MIN, priority: LayoutPriority.Low, snap: true,
+    });
+    // without a size, the panels would share the width evenly
+    const space = api.addPanel({ id: "workspace", component: "workspace", size: api.width - saved.width });
+    tree.api.setVisible(treeVisible);
+    // dragged narrower than its minimum, the tree snaps shut, as if hidden with the course icon
+    tree.api.onDidVisibilityChange(({ isVisible }) => { if (shownCourse.current) setSidebar(isVisible); });
+    tree.api.onDidDimensionsChange(({ width: w }) => { if (tree.api.isVisible && w > 0) setWidth(Math.round(w)); });
+    // dockview follows a resize a frame late; laid out at once, the tabs do not jump while the tree is resized
+    space.api.onDidDimensionsChange(({ width: w, height: h }) => {
+      const name = shownCourse.current;
+      // less the space before the tabs: half the gap beside the tree, all of it beside the rail
+      if (name) apis.current[name]?.layout(w - (treeShown.current ? GAP / 2 : GAP), h);
+    });
+  }
 
   function open(name: string) {
     setCourse(name);
@@ -263,21 +316,14 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
     }
   }
 
-  function toggleDetails(name: string) {
-    setShown((s) => {
-      const next = new Set(s);
-      if (!next.delete(name)) next.add(name);
-      return next;
-    });
-  }
-
-  function toggle(key: string) {
-    setExpanded((s) => {
-      const next = new Set(s);
-      if (!next.delete(key)) next.add(key);
-      return next;
-    });
-  }
+  const flip = (key: string) => (s: Set<string>) => {
+    const next = new Set(s);
+    if (!next.delete(key)) next.add(key);
+    return next;
+  };
+  const toggleDetails = (key: string) => setShown(flip(key));
+  const toggle = (key: string) => setExpanded(flip(key));
+  const fold = (key: string) => setFolded(flip(key));
 
   function switchUser(name: string) {
     chooseUser(name).then(() => onSwitch(name));
@@ -344,8 +390,8 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
   }, [load]);
 
   const shell = useMemo<Shell>(
-    () => ({ user, details: shown, cheatsheet, load, onCheatsheet, openLink }),
-    [user, shown, cheatsheet, load, onCheatsheet, openLink],
+    () => ({ user, cheatsheet, load, onCheatsheet, openLink }),
+    [user, cheatsheet, load, onCheatsheet, openLink],
   );
 
   const onReady = useCallback((name: string, api: DockviewApi) => { apis.current[name] = api; }, []);
@@ -369,9 +415,8 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
     );
   }
 
-  /** The source PDFs, grouped by document type; their conversions only while the course shows its details. */
-  function sources(all: string[]) {
-    const paths = shown.has(course!) ? all : all.filter((p) => p.endsWith(".pdf"));
+  /** The source PDFs and their conversions, grouped by document type. */
+  function sources(paths: string[]) {
     const key = `${course}:sources`;
     const types = [...new Set(paths.map((p) => p.split("/")[1]))];
     const folder = (k: string, label: string) => (
@@ -404,8 +449,90 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
     );
   }
 
+  const tree = (
+    <nav className="sidebar">
+      <header>{course}</header>
+      {summary?.ingestion && <p className="status pending">Ingesting: {summary.ingestion}</p>}
+      {summary?.error && !summary.ingestion && (
+        <div className="status">
+          <p className="error">Ingestion failed: {summary.error}</p>
+          <button className="retry" onClick={() => retry(summary.name)}>Retry</button>
+        </div>
+      )}
+      {summary && summary.status !== "ready" && !summary.ingestion && !summary.error && (
+        <div className="status">
+          <p className="muted">Not ingested.</p>
+          <button className="retry" onClick={() => retry(summary.name)}>Ingest</button>
+        </div>
+      )}
+      {detail && (
+        <ul>
+          {detail.topics.map((t, i) => {
+            const topicId = chatId(course!, t.slug);
+            const priority = `${course}:${t.priority}`;
+            return [
+              t.priority !== detail.topics[i - 1]?.priority && (
+                <li key={`priority-${t.priority}`}>
+                  <button className="divider" aria-expanded={!folded.has(priority)} onClick={() => fold(priority)}>
+                    {PRIORITY[t.priority] ?? t.priority}
+                    {folded.has(priority) && (
+                      <span className="count">{detail.topics.filter((o) => o.priority === t.priority).length}</span>
+                    )}
+                  </button>
+                </li>
+              ),
+              !folded.has(priority) && <li key={t.slug}>
+                <div className={["row", active === topicId && "active", t.score === null && "paper"].filter(Boolean).join(" ")}
+                  onContextMenu={(e) => { e.preventDefault(); setMenu({ course: course!, topic: topicId, x: e.clientX, y: e.clientY }); }}>
+                  <span className="score" style={t.score === null ? undefined : { color: scoreColor(t.score) }} title={`${t.priority} priority · ${t.score === null
+                    ? "no tasks to practise here, only ones to practise on paper" : `${t.score}% of the tasks done`}`}>
+                    {t.score === null ? "" : `${t.score}%`}
+                  </span>
+                  <button title={t.name} onClick={() => show(topicId, "chat", t.name, { course: course!, topic: t.slug })}>
+                    {t.name}
+                  </button>
+                </div>
+                {shown.has(topicId) && (
+                  <ul>
+                    <li className="usage"><Tokens usage={t.usage} stacked /></li>
+                    {t.files.map((f) => {
+                      const name = f.split("/").at(-1)!;
+                      return file(f, name, `${t.name} · ${name}`);
+                    })}
+                  </ul>
+                )}
+              </li>
+            ];
+          })}
+          {shown.has(course!) && detail.sources.length > 0 && sources(detail.sources)}
+          {shown.has(course!) && detail.files.includes("notes.md") && file("notes.md", "Notes", `${course} · Notes`)}
+          {detail.files.includes(CHEATSHEET) && file(CHEATSHEET, "Cheatsheet", `${course} · Cheatsheet`)}
+          {shown.has(course!) && detail.topics.length > 0 && (
+            <li className="usage" title="Whole course: all topics">
+              <Tokens usage={detail.topics.map((t) => t.usage).reduce(addUsage, NO_USAGE)} stacked />
+            </li>
+          )}
+        </ul>
+      )}
+    </nav>
+  );
+
+  const workspace = (
+    <ShellContext.Provider value={shell}>
+      <DetailsContext.Provider value={shown}>
+        <div className="workspace">
+          {visited.map((name) => (
+            <CourseTabs key={name} course={name} visible={name === course} layout={saved.layouts[name]}
+              onReady={onReady} onLayout={onLayout} onActive={onActive} />
+          ))}
+          {!course && <p className="hint">{user ? "Create a course with +." : "Choose a user at the bottom left."}</p>}
+        </div>
+      </DetailsContext.Provider>
+    </ShellContext.Provider>
+  );
+
   return (
-    <div className="app">
+    <div className={treeVisible ? "app" : "app tree-hidden"}>
       <div className="dock">
         <div className="rail">
           {courses.map((c) => (
@@ -421,78 +548,26 @@ function Workspace({ user, users, onSwitch }: { user: string | null; users: stri
         </div>
         <UserMenu user={user} users={users} onChoose={switchUser} />
       </div>
-      <nav className="sidebar" hidden={!sidebar || !course}>
-        <header>{course}</header>
-        {summary?.ingestion && <p className="status pending">Ingesting: {summary.ingestion}</p>}
-        {summary?.error && !summary.ingestion && (
-          <div className="status">
-            <p className="error">Ingestion failed: {summary.error}</p>
-            <button className="retry" onClick={() => retry(summary.name)}>Retry</button>
-          </div>
-        )}
-        {summary && summary.status !== "ready" && !summary.ingestion && !summary.error && (
-          <div className="status">
-            <p className="muted">Not ingested.</p>
-            <button className="retry" onClick={() => retry(summary.name)}>Ingest</button>
-          </div>
-        )}
-        {detail && (
-          <ul>
-            {detail.topics.map((t, i) => {
-              const topicId = chatId(course!, t.slug);
-              return [
-                t.priority !== detail.topics[i - 1]?.priority && (
-                  <li key={`priority-${t.priority}`} className="divider"><span>{PRIORITY[t.priority] ?? t.priority}</span></li>
-                ),
-                <li key={t.slug}>
-                  <div className={["row", active === topicId && "active", t.score === null && "paper"].filter(Boolean).join(" ")}>
-                    <span className="score" style={t.score === null ? undefined : { color: scoreColor(t.score) }} title={`${t.priority} priority · ${t.score === null
-                      ? "no tasks to practise here, only ones to practise on paper" : `${t.score}% of the tasks done`}`}>
-                      {t.score === null ? "" : `${t.score}%`}
-                    </span>
-                    <button title={t.name} onClick={() => show(topicId, "chat", t.name, { course: course!, topic: t.slug })}>
-                      {t.name}
-                    </button>
-                  </div>
-                  {shown.has(course!) && (
-                    <ul>
-                      <li className="usage"><Tokens usage={t.usage} stacked /></li>
-                      {t.files.map((f) => {
-                        const name = f.split("/").at(-1)!;
-                        return file(f, name, `${t.name} · ${name}`);
-                      })}
-                    </ul>
-                  )}
-                </li>
-              ];
-            })}
-            {detail.sources.length > 0 && sources(detail.sources)}
-            {detail.files.includes("notes.md") && file("notes.md", "Notes", `${course} · Notes`)}
-            {detail.files.includes(CHEATSHEET) && file(CHEATSHEET, "Cheatsheet", `${course} · Cheatsheet`)}
-            {shown.has(course!) && detail.topics.length > 0 && (
-              <li className="usage" title="Whole course: all topics">
-                <Tokens usage={detail.topics.map((t) => t.usage).reduce(addUsage, NO_USAGE)} stacked />
-              </li>
-            )}
-          </ul>
-        )}
-      </nav>
-      <ShellContext.Provider value={shell}>
-        <div className="workspace">
-          {visited.map((name) => (
-            <CourseTabs key={name} course={name} visible={name === course} width={sidebar} layout={saved.layouts[name]}
-              onReady={onReady} onLayout={onLayout} onActive={onActive} />
-          ))}
-          {!course && <p className="hint">{user ? "Create a course with +." : "Choose a user at the bottom left."}</p>}
-        </div>
-      </ShellContext.Provider>
+      <SplitContext.Provider value={{ tree, workspace }}>
+        <SplitviewReact className="split dockview-theme-light" components={SPLIT} onReady={splitReady}
+          orientation={Orientation.HORIZONTAL} proportionalLayout={false} />
+      </SplitContext.Provider>
       {menu && (() => {
         const s = courses.find((c) => c.name === menu.course);
-        return s && (
-          <CourseMenu x={menu.x} y={menu.y} summary={s} details={shown.has(s.name)} onClose={() => setMenu(null)}
-            onDetails={() => toggleDetails(s.name)}
-            onAdd={() => setDialog({ course: s.name })} onRetry={() => retry(s.name)} onDelete={() => setDeleting(s.name)} />
-        );
+        if (!s) return null;
+        const key = menu.topic ?? s.name;
+        const running = s.ingestion !== null;
+        const items: MenuItem[] = [
+          { label: shown.has(key) ? "Hide details" : "Show hidden details", act: () => toggleDetails(key) },
+        ];
+        if (!menu.topic) {
+          items.push({ label: "Add files", act: () => setDialog({ course: s.name }), disabled: running });
+          if (s.error !== null || s.status !== "ready") {
+            items.push({ label: "Retry ingestion", act: () => retry(s.name), disabled: running });
+          }
+          items.push({ label: "Delete course", act: () => setDeleting(s.name), disabled: running, danger: true });
+        }
+        return <ContextMenu x={menu.x} y={menu.y} items={items} onClose={() => setMenu(null)} />;
       })()}
       {dialog && <CourseDialog course={dialog.course} onDone={created} onCancel={() => setDialog(null)} />}
       {deleting && <DeleteDialog course={deleting} onDelete={() => remove(deleting)} onCancel={() => setDeleting(null)} />}

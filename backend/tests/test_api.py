@@ -17,7 +17,7 @@ class ClosableFakeAI(FakeAI):
         pass
 
     def tokens(self):
-        return {"input": 100, "cached": 80, "output": 10, "eur": 0.5}
+        return {"input": 100, "cached": 80, "output": 10, "eur_input": 0.4, "eur_output": 0.1}
 
 
 @pytest.fixture
@@ -46,7 +46,7 @@ def test_course_and_files(client, store):  # noqa: F811
     store.write_json("topics/laplace/progress.json", {"introduction": True})
     course = client.get("/api/courses/control").json()
     assert course["topics"] == [{"slug": "laplace", "name": "Laplace", "priority": "high", "score": 0,
-                                 "files": ["topics/laplace/progress.json", "topics/laplace/topic.md"], "usage": {"input": 0, "cached": 0, "output": 0, "eur": 0.0}}]
+                                 "files": ["topics/laplace/progress.json", "topics/laplace/topic.md"], "usage": {"input": 0, "cached": 0, "output": 0, "eur_input": 0.0, "eur_output": 0.0}}]
     assert course["files"] == ["notes.md"]
     assert course["sources"] == ["sources/exams/2023.md", "sources/exercises/uebung1.md"]
     assert client.get("/api/courses/control/files/topics/laplace/topic.md").text == "# Laplace"
@@ -72,11 +72,11 @@ def test_chat_streams_reply(client, store):  # noqa: F811
     r = client.post("/api/courses/control/chat", json={"topic": "laplace", "transcript": transcript})
     evs = events(r)
     assert [k for k, _ in evs] == ["cheatsheet", "task", "text", "usage", "messages"]
-    assert evs[-2][1] == {"input": 100, "cached": 80, "output": 10, "eur": 0.5}
+    assert evs[-2][1] == {"input": 100, "cached": 80, "output": 10, "eur_input": 0.4, "eur_output": 0.1}
     assert [m["role"] for m in evs[-1][1]] == ["assistant", "user", "assistant"]
     client.post("/api/courses/control/chat", json={"topic": "laplace", "transcript": transcript})
     course = client.get("/api/courses/control").json()
-    assert course["topics"][0]["usage"] == {"input": 200, "cached": 160, "output": 20, "eur": 1.0}
+    assert course["topics"][0]["usage"] == {"input": 200, "cached": 160, "output": 20, "eur_input": 0.8, "eur_output": 0.2}
     assert "Laplace" in store.read_text("cheatsheet.md")
 
     r = client.post("/api/courses/control/chat", json={"topic": "nope", "transcript": transcript})
@@ -86,14 +86,14 @@ def test_chat_streams_reply(client, store):  # noqa: F811
 
 
 def test_chat_is_stored_until_ended(client, store):  # noqa: F811
-    empty = {"transcript": [], "usage": {"input": 0, "cached": 0, "output": 0, "eur": 0.0}}
+    empty = {"transcript": [], "usage": {"input": 0, "cached": 0, "output": 0, "eur_input": 0.0, "eur_output": 0.0}}
     assert client.get("/api/courses/control/chat", params={"topic": "laplace"}).json() == empty
     transcript = [{"role": "user", "content": "quiz me"}]
     messages = events(client.post("/api/courses/control/chat", json={"topic": "laplace", "transcript": transcript}))[-1][1]
     client.post("/api/courses/control/chat", json={"topic": "laplace", "transcript": [*transcript, *messages, *transcript]})
     stored = client.get("/api/courses/control/chat", params={"topic": "laplace"}).json()
     assert len(stored["transcript"]) == 8
-    assert stored["usage"] == {"input": 200, "cached": 160, "output": 20, "eur": 1.0}
+    assert stored["usage"] == {"input": 200, "cached": 160, "output": 20, "eur_input": 0.8, "eur_output": 0.2}
     assert client.get("/api/courses/control/chat").status_code == 422
     assert client.get("/api/courses/control/chat", params={"topic": "nope"}).status_code == 404
 

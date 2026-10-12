@@ -1,13 +1,16 @@
 /** `ingestion`: the step a running ingestion is at; `error`: why the last ingestion failed. */
 export type CourseSummary = { name: string; status: string; ingestion: string | null; error: string | null };
 
-/** Tokens sent to the model, cached ones included; of these, the cached ones; tokens it replied with; approximate cost. */
-export type Usage = { input: number; cached: number; output: number; eur: number };
+/** Tokens sent to the model, cached ones included; of these, the cached ones; tokens it replied with; the approximate
+ * cost of the input and of the output. */
+export type Usage = { input: number; cached: number; output: number; eur_input: number; eur_output: number };
 
-export const NO_USAGE: Usage = { input: 0, cached: 0, output: 0, eur: 0 };
+export const NO_USAGE: Usage = { input: 0, cached: 0, output: 0, eur_input: 0, eur_output: 0 };
 
-export const addUsage = (a: Usage, b: Usage): Usage =>
-  ({ input: a.input + b.input, cached: a.cached + b.cached, output: a.output + b.output, eur: a.eur + b.eur });
+export const addUsage = (a: Usage, b: Usage): Usage => ({
+  input: a.input + b.input, cached: a.cached + b.cached, output: a.output + b.output,
+  eur_input: a.eur_input + b.eur_input, eur_output: a.eur_output + b.eur_output,
+});
 
 /** `score`: the percentage of the topic's tasks done, null for a topic without tasks to practise. */
 export type Topic = { slug: string; name: string; priority: string; score: number | null; files: string[]; usage: Usage };

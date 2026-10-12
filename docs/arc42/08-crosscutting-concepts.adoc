@@ -329,8 +329,8 @@ course, and request type, the OCR Client the pages of every
 conversion. The cost of an ingestion is read from this log.
 
 Every chat request adds its input tokens, cached ones included, its
-cached input tokens, its output tokens, and its approximate cost in
-euros to the topic's `usage.json`. The cost is computed from
+cached input tokens, its output tokens, and the approximate cost in
+euros of its input and of its output to the topic's `usage.json`. The cost is computed from
 Anthropic's list prices per model and a fixed exchange rate, both in
 the backend source. The UI shows these totals and their sum for the
 course, and each chat reply reports its own; the

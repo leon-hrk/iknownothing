@@ -22,8 +22,6 @@ export const docId = (course: string, path: string) => `doc:${course}:${path}`;
 /** What the panels need from the workspace around them. */
 export type Shell = {
   user: string | null;
-  /** The courses that show their details, such as token usage. */
-  details: Set<string>;
   /** Counts the cheatsheet updates, so open cheatsheets reload. */
   cheatsheet: number;
   /** Reloads the course in the tree, e.g. its token usage. */
@@ -34,6 +32,15 @@ export type Shell = {
 };
 
 export const ShellContext = createContext<Shell>(null!);
+
+/** What shows its details, such as token usage: a course by its name, a topic by the id of its chat. Apart from the
+ * shell, so that showing or hiding details does not render every open tab anew. */
+export const DetailsContext = createContext<Set<string>>(new Set());
+
+/** The token usage of a chat, while its topic shows its details. */
+function ChatUsage({ id, usage }: { id: string; usage: Usage }) {
+  return useContext(DetailsContext).has(id) ? <Tokens usage={usage} /> : null;
+}
 
 let nextId = 1;
 
@@ -99,7 +106,7 @@ export function ChatPanel({ params: { course, topic }, api }: IDockviewPanelProp
   return (
     <div className="panel" tabIndex={-1}>
       <header className="bar">
-        {shell.details.has(course) && <Tokens usage={chat.usage} />}
+        <ChatUsage id={chatId(course, topic)} usage={chat.usage} />
         <button className="end" disabled={busy || !chat.transcript.length} onClick={() => setEnding(true)}>
           End session
         </button>

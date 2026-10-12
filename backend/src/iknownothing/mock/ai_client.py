@@ -86,7 +86,7 @@ def sample_chat() -> dict:
                 transcript.append({"role": "user", "content": [
                     {"type": "tool_result", "tool_use_id": b["id"], "content": POSED[b["input"]["tier"]]}
                     for b in calls]})
-    return {"transcript": transcript, "usage": {"input": 0, "cached": 0, "output": 0, "eur": 0.0}}
+    return {"transcript": transcript, "usage": {"input": 0, "cached": 0, "output": 0, "eur_input": 0.0, "eur_output": 0.0}}
 
 
 def _message_and_round(messages: list[dict]) -> tuple[str, int]:
@@ -141,4 +141,4 @@ class MockAIClient:
             stop_reason=stop_reason, content=[_BLOCKS[b["type"]].model_validate(b) for b in content])
 
     def tokens(self) -> dict[str, float]:
-        return {"input": 0, "cached": 0, "output": 0, "eur": 0.0}
+        return {"input": 0, "cached": 0, "output": 0, "eur_input": 0.0, "eur_output": 0.0}

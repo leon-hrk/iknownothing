@@ -285,8 +285,13 @@ arranged side by side.
   two letters of the course name. Clicking one opens the course and
   shows its tree; clicking the open course's icon hides or shows the
   tree. Below the icons, *+* creates a course.
-* The *tree* shows the open course: its topics, *Sources*, *Notes*,
-  *Cheatsheet*, and the token usage of all its topics. While the
+* The *tree* shows the open course: its topics and *Cheatsheet*,
+  and, while the course shows its details, *Sources*, *Notes*, and
+  the token usage of all its topics. Its border
+  to the workspace can be dragged like the borders between groups;
+  dragged well below its minimum width, the tree is hidden as if
+  with the course icon. A name too long for its line ends in an
+  ellipsis. While the
   course is being ingested, the tree shows the step the ingestion is
   at; after a failed ingestion, the error and a *Retry* button; a
   course that is not ingested offers *Ingest*.
@@ -307,42 +312,52 @@ arranged side by side.
   each topic stands its score, the percentage of its tasks done,
   coloured from red at 0% to green at 100%. A topic with only
   Tier C tasks shows no score and is greyed out. Clicking a topic
-  opens its topic chat. *Show hidden details* in the menu of the
-  course icon shows under every topic its token usage and the files
-  of its topic directory, under *Sources* the conversions, the token
-  usage of the whole course, and in the bar of each of its chats the
-  chat's token usage; *Hide details* hides them again.
+  opens its topic chat. Clicking a divider folds the topics of its
+  priority away, clicking it again unfolds them; an arrow in front
+  of its label points down while they are shown and to the right
+  while they are folded away, and a folded divider ends in the
+  number of its topics. A right click on a
+  topic opens a menu: *Show hidden details* shows under the topic
+  its token usage and the files of its topic directory, and in the
+  bar of its chat the chat's token usage; *Hide details* hides them
+  again. *Show hidden details* in the menu of the course icon shows
+  the details of the course: *Sources*, *Notes*, and the token
+  usage of the whole course; *Hide details* hides them
+  again. No details are
+  shown until asked for.
 * The *workspace* right of the tree holds the tabs of the open
   course, in groups. A chat or
   file opens as a tab right of the active tab, in the active group;
-  an open one is only shown. Dragging a tab onto another group's tab
+  an open one is only shown. Tabs that do not fit their tab bar
+  are reached by scrolling it. Dragging a tab onto another group's tab
   bar moves it there, dropping it on an edge of a group splits the
   group, and the borders between groups can be dragged. Every course
   has its own workspace: switching courses hides the tabs of the
   other instead of closing them, so its chats keep streaming and its
   arrangement is there when switching back. Every course's
-  arrangement, the open course, the expanded folders, the courses
-  showing their details, and whether the tree is shown are restored
-  after a reload, per user.
+  arrangement, the open course, the expanded folders, the folded
+  priorities, the courses and topics showing their details, whether
+  the tree is shown, and its width are restored after a reload, per
+  user.
 * A bar above each chat holds, on the right, its token usage while
-  the course shows its details, and the *End session* button. The button asks for
+  its topic shows its details, and the *End session* button. The button asks for
   confirmation, then ends the session: the chat is cleared. The
   progress recorded in its steps is kept.
 * A chat tab is an ordinary chat. Tutoring and quizzing happen
   there.
 * Token usage is shown as input (↑) tokens, cached input included and
-  the cached share named, output (↓) tokens, and the approximate cost
-  in euros, while the course shows its details: in the bar of each
-  chat for its session, on three lines under a topic for all its
-  chats, and at the end of the tree for all topics of the course
-  together.
+  the cached share named, and output (↓) tokens, each followed by its
+  approximate cost in euros, and the cost of both together (Σ):
+  while a topic shows its details, in the bar of its chat for its
+  session and on three lines under the topic for all its chats; while the course shows its details, at the end of the tree
+  for all topics of the course together.
 * Clicking a Markdown file - the files of a topic, *Notes*,
-  *Cheatsheet*, and, while the course shows its details, the
-  converted exams and exercises under *Sources* - shows it rendered and read-only, figures in place, in
+  *Cheatsheet*, and the converted exams and exercises under
+  *Sources* - shows it rendered and read-only, figures in place, in
   a tab. A topic's `progress.json` shows as a JSON code block and is
   refreshed after every step.
 * *Sources* lists the PDF of every source, and beside it its
-  conversion while the course shows its details. Clicking one shows it in a tab, every page at the
+  conversion. Clicking one shows it in a tab, every page at the
   tab's width.
 * At the bottom of the rail, a round button shows the first
   two letters of the user and opens the list of users. Choosing

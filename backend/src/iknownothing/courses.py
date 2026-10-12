@@ -98,19 +98,22 @@ def update_from_dir(store: CourseStore, src: Path) -> list[str]:
 
 
 USAGE = "usage.json"
-_NO_USAGE = {"input": 0, "cached": 0, "output": 0, "eur": 0.0}
+_NO_USAGE = {"input": 0, "cached": 0, "output": 0, "eur_input": 0.0, "eur_output": 0.0}
+
+
+def _sum(total: dict[str, float], tokens: dict[str, float]) -> dict[str, float]:
+    return {k: total.get(k, 0) + tokens.get(k, 0) for k in _NO_USAGE}
 
 
 def usage(store: CourseStore, directory: str) -> dict[str, int]:
     """Tokens and approximate euros spent on the chats of a topic directory."""
     rel = f"{directory}/{USAGE}"
-    return _NO_USAGE | (store.read_json(rel) if store.exists(rel) else {})
+    return _sum(store.read_json(rel) if store.exists(rel) else {}, {})
 
 
 async def add_usage(store: CourseStore, directory: str, tokens: dict[str, float]) -> None:
     def change(text: str) -> str:
-        total = _NO_USAGE | (json.loads(text) if text else {})
-        return json.dumps({k: total[k] + tokens[k] for k in total}) + "\n"
+        return json.dumps(_sum(json.loads(text) if text else {}, tokens)) + "\n"
 
     await store.update_text(f"{directory}/{USAGE}", change)
 
@@ -125,14 +128,15 @@ def _chat_file(directory: str) -> str:
 def chat(store: CourseStore, directory: str) -> dict:
     """The open chat of a topic directory: its transcript and usage."""
     rel = _chat_file(directory)
-    return {"transcript": [], "usage": _NO_USAGE} | (store.read_json(rel) if store.exists(rel) else {})
+    stored = store.read_json(rel) if store.exists(rel) else {}
+    return {"transcript": stored.get("transcript", []), "usage": _sum(stored.get("usage", {}), {})}
 
 
 def save_chat(store: CourseStore, directory: str, transcript: list[dict], tokens: dict[str, float]) -> None:
     """Stores the transcript and adds `tokens` to the open chat's usage."""
     total = chat(store, directory)["usage"]
     store.write_json(_chat_file(directory), {"transcript": transcript,
-                                             "usage": {k: total[k] + tokens[k] for k in total}})
+                                             "usage": _sum(total, tokens)})
 
 
 def end_chat(store: CourseStore, directory: str) -> list[dict]:

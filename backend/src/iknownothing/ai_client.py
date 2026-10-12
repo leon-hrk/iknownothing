@@ -110,12 +110,13 @@ class AIClient:
 
     def tokens(self) -> dict[str, float]:
         """Of all requests so far: input tokens, cached ones included; cached input tokens; output
-        tokens; and the approximate cost in euros."""
+        tokens; and the approximate cost in euros of the input and of the output."""
         return {
             "input": sum(u["input"] + u["cache_read"] + u["cache_write"] for u in self.usage.values()),
             "cached": sum(u["cache_read"] for u in self.usage.values()),
             "output": sum(u["output"] for u in self.usage.values()),
-            "eur": sum(u["eur"] for u in self.usage.values()),
+            "eur_input": sum(u["eur_input"] for u in self.usage.values()),
+            "eur_output": sum(u["eur_output"] for u in self.usage.values()),
         }
 
     def _record_usage(self, request_type: str, msg: Any) -> None:
@@ -133,4 +134,6 @@ class AIClient:
         totals["output"] += u.output_tokens
         totals["cache_read"] += cache_read
         totals["cache_write"] += cache_write
-        totals["eur"] += pricing.eur(msg.model, u.input_tokens, u.output_tokens, cache_read, cache_write)
+        eur_input, eur_output = pricing.eur(msg.model, u.input_tokens, u.output_tokens, cache_read, cache_write)
+        totals["eur_input"] += eur_input
+        totals["eur_output"] += eur_output

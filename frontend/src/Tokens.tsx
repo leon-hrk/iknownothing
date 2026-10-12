@@ -6,13 +6,14 @@ function euros(eur: number): string {
   return eur.toLocaleString("de", { style: "currency", currency: "EUR", maximumFractionDigits: eur < 0.1 ? 3 : 2 });
 }
 
-/** Token usage and approximate cost: on one line, or with `stacked` on one line each for input, output, and cost. */
+/** Token usage, each with its approximate cost, and the cost of both together: on one line, or with `stacked` on one
+ * line each for input, output, and total. */
 export default function Tokens({ usage, stacked = false }: { usage: Usage; stacked?: boolean }) {
   const exact = (n: number) => n.toLocaleString("en");
   const parts = [
-    `↑ ${compact.format(usage.input)} (${compact.format(usage.cached)} cached)`,
-    `↓ ${compact.format(usage.output)}`,
-    `≈ ${euros(usage.eur)}`,
+    `↑ ${compact.format(usage.input)} (${compact.format(usage.cached)} cached) ≈ ${euros(usage.eur_input)}`,
+    `↓ ${compact.format(usage.output)} ≈ ${euros(usage.eur_output)}`,
+    `Σ ≈ ${euros(usage.eur_input + usage.eur_output)}`,
   ];
   return (
     <span className={stacked ? "tokens stacked" : "tokens"} title={

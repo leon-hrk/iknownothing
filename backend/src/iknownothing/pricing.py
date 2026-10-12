@@ -19,12 +19,13 @@ PRICES = {
 EUR_PER_USD = 0.86
 
 
-def eur(model: str, input: int, output: int, cache_read: int, cache_write: int) -> float:
-    """The cost in euros; 0 for a model without a price."""
+def eur(model: str, input: int, output: int, cache_read: int, cache_write: int) -> tuple[float, float]:
+    """The cost in euros of the input, cached and not, and of the output; 0 for a model without a price."""
     key = max((k for k in PRICES if model.startswith(k)), key=len, default=None)
     if key is None:
         log.warning("no price for model %s", model)
-        return 0.0
+        return 0.0, 0.0
     price_in, price_out, price_read = PRICES[key]
-    usd = (input * price_in + cache_write * price_in * 1.25 + cache_read * price_read + output * price_out) / 1e6
-    return usd * EUR_PER_USD
+    usd_in = (input * price_in + cache_write * price_in * 1.25 + cache_read * price_read) / 1e6
+    usd_out = output * price_out / 1e6
+    return usd_in * EUR_PER_USD, usd_out * EUR_PER_USD

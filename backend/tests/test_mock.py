@@ -28,7 +28,7 @@ def test_command_streams_its_reply(store, ai):  # noqa: F811
     thinking = "".join(v for k, v in events if k == "thinking")
     assert transcript[-1] == {"role": "assistant", "content": [
         {"type": "thinking", "thinking": thinking, "signature": "mock"}, {"type": "text", "text": normal}]}
-    assert ai.tokens()["eur"] == 0
+    assert ai.tokens()["eur_input"] == ai.tokens()["eur_output"] == 0
 
 
 def test_tools_poses_a_task_in_a_tool_round(store, ai):  # noqa: F811
